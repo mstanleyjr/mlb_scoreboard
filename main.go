@@ -1,23 +1,60 @@
 package main
 
+import (
+	"context"
+	"fmt"
+
+	"github.com/mstanleyjr/mlb_scoreboard/client/oapi/statsapi"
+)
+
+const CLIENT_SERVER = "https://statsapi.mlb.com"
+const MLB_SPORTS_ID = 1
+
 func main() {
 
 	println("Starting MLB Scoreboard")
-	//
-	//os.Setenv("MATRIX_EMULATOR", "1")
-	//config := &rgbmatrix.DefaultConfig
-	//println("%v", config)
-	//m, _ := rgbmatrix.NewRGBLedMatrix(config)
-	////
-	//c := rgbmatrix.NewCanvas(m)
-	//defer c.Close()
-	//
-	//draw.Draw(c, c.Bounds(), &image.Uniform{color.White}, image.ZP, draw.Src)
-	//c.Render()
-	//
-	//time.Sleep(45 * time.Second)
+	ctx, _ := context.WithCancel(context.Background())
 
-	// Yeah I just gotta do this on the other laptop so I can emulate
+	mlbClient, err := statsapi.NewClient(CLIENT_SERVER)
+	if err != nil {
+		println(err.Error())
+		return
+	}
+
+	schedule, err := mlbClient.Schedule(ctx, &statsapi.ScheduleParams{
+		CalendarTypes:        nil,
+		EventTypes:           nil,
+		ScheduleEventTypes:   nil,
+		TeamId:               nil,
+		LeagueId:             nil,
+		SportId:              MLB_SPORTS_ID,
+		GamePk:               nil,
+		GamePks:              nil,
+		EventIds:             nil,
+		VenueIds:             nil,
+		PerformerIds:         nil,
+		GameTypes:            nil,
+		GameType:             nil,
+		Season:               nil,
+		Seasons:              nil,
+		Date:                 nil,
+		StartDate:            nil,
+		EndDate:              nil,
+		Timecode:             nil,
+		UseLatestGames:       nil,
+		OpponentId:           nil,
+		PublicFacing:         nil,
+		Fields:               nil,
+		UsingPrivateEndpoint: false,
+	})
+	if err != nil {
+		println(err.Error())
+		return
+	}
+
+	fmt.Println("Schedule retrieved: ", schedule)
+	fmt.Println("req", schedule.StatusCode)
+	fmt.Println("body", schedule.Body)
 
 	// make a config object
 	// make a client
