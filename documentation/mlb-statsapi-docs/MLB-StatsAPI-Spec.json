@@ -50,9 +50,6 @@
       "description": "Operations pertaining to weather data "
     },
     {
-      "name": "Misc"
-    },
-    {
       "name": "High/Low",
       "description": "Operations pertaining to high/low stats"
     },
@@ -17745,9 +17742,6 @@
           "copyright": {
             "type": "string"
           },
-          "violation_type_desc": {
-            "type": "string"
-          },
           "violationTypeDesc": {
             "type": "string"
           },
@@ -25733,20 +25727,23 @@
       "GameStatusRestObject": {
         "type": "object",
         "properties": {
-          "copyright": {
+          "abstractGameState": {
             "type": "string"
           },
-          "isCurrentBatter": {
+          "codedGameState": {
+            "type": "string"
+          },
+          "detailedState": {
+            "type": "string"
+          },
+          "statusCode": {
+            "type": "string"
+          },
+          "startTimeTBD": {
             "type": "boolean"
           },
-          "isCurrentPitcher": {
-            "type": "boolean"
-          },
-          "isOnBench": {
-            "type": "boolean"
-          },
-          "isSubstitute": {
-            "type": "boolean"
+          "abstractGameCode": {
+            "type": "string"
           }
         }
       },

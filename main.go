@@ -10,9 +10,15 @@ import (
 func main() {
 	ctx, _ := context.WithCancel(context.Background())
 
+	controller := &scoreboard.DisplayController{}
+	controller.Cond = sync.NewCond(&controller.Mu)
+	controller.Paused = false
+
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go scoreboard.StartScoreboard(ctx, &wg)
+	go scoreboard.StartScoreboard(ctx, &wg, controller)
+	//wg.Add(1)
+	//go radio.StartRadio(ctx, &wg, controller)
 
 	wg.Wait()
 

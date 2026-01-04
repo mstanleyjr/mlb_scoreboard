@@ -13,7 +13,13 @@ const NATIONALS_TEAM_ID = 120
 const AMERICAN_LEAGUE_ID = 103
 const NATIONAL_LEAGUE_ID = 104
 
-func StartScoreboard(ctx context.Context, wg *sync.WaitGroup) {
+type DisplayController struct {
+	Mu     sync.Mutex
+	Cond   *sync.Cond
+	Paused bool
+}
+
+func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *DisplayController) {
 	defer wg.Done()
 	println("Starting MLB Scoreboard")
 
@@ -63,12 +69,12 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup) {
 			li := *league.League.Id
 			di := divisionIndex
 			pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-				DivisionStandingsDisplay(scoreboardInfo, li, di)
+				DivisionStandingsDisplay(scoreboardInfo, li, di, controller)
 			})
 		}
 	}
 	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-		NextMatchupDisplay(scoreboardInfo)
+		NextMatchupDisplay(scoreboardInfo, controller)
 	})
 
 	pageIndex := 0
@@ -79,33 +85,9 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup) {
 			fmt.Println("StartScoreboard: context canceled, exiting")
 			return
 		case <-scheduleRes.Done():
-			// TODO: We probably don't need half of this
-			// Final snapshot after producer finished
-			if p := scheduleRes.Latest(); p != nil {
-				fmt.Printf("Final schedule: %+v\n", *p)
-			} else {
-				fmt.Println("No final schedule available")
-			}
-			fmt.Println("StartScoreboard: schedule producer finished, exiting")
 			return
 		case <-nationalLeagueDivisionStandingRes.Done():
-			// Final snapshot after division standings producer finished (do not exit)
-			if s := nationalLeagueDivisionStandingRes.Latest(); s != nil {
-				fmt.Printf("Final National League division standings: %+v\n", *s)
-			} else {
-				fmt.Println("No final National League division standings available")
-			}
-			fmt.Println("StartScoreboard: division standings producer finished")
-			// continue to wait for schedule or context cancel
 		case <-americanLeagueDivisionStandingRes.Done():
-			// Final snapshot after division standings producer finished (do not exit)
-			if s := americanLeagueDivisionStandingRes.Latest(); s != nil {
-				fmt.Printf("Final American League division standings: %+v\n", *s)
-			} else {
-				fmt.Println("No final American League division standings available")
-			}
-			fmt.Println("StartScoreboard: division standings producer finished")
-			// continue to wait for schedule or context cancel
 		default:
 		}
 
@@ -116,11 +98,18 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup) {
 			AmericanLeagueStandings: americanLeagueDivisionStandingRes.Latest(),
 		}
 
+		activeGame, err := FindActiveGame(scoreboardInfo)
+		if err != nil {
+			println("Error finding active game: ", err.Error())
+		}
+
 		if !IsDataLoaded(scoreboardInfo) {
 			LoadingScreen()
+		} else if activeGame != nil {
+			fmt.Println("Active game found! Displaying live game data for game ID: ", activeGame)
+
 		} else {
 			pages[pageIndex](scoreboardInfo)
-			time.Sleep(3 * time.Second)
 
 			pageIndex++
 			if pageIndex == len(pages) {
@@ -129,15 +118,6 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup) {
 		}
 		// If it's within 1 hour of a game start we'll need to switch to something else
 
-		// TODO: Do the standing page here
-
-		// I bet I can make a list of pages to display and just cycle through them.
-		// Use that stuff above to help set it up
-
-		// I think I need to have more control here for what "page" we're on
-
-		// THIS is the controller and how often we cycle is up to here
-
 		select {
 		case <-ctx.Done():
 			fmt.Println("StartScoreboard: shutting down during sleep")
@@ -145,14 +125,6 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup) {
 		case <-time.After(loopInterval):
 		}
 	}
-
-	// That stuff is more dynamic than I thought, so maybe for the schedule we call it every 5 minutes or so
-	// Same with standings, we can call that on a similar schedule
-
-	// So might be worth MORE GO ROUTINES that we can communicate with channels or something
-
-	// So we want to get some stuff to hold in memory so we don't have to fuck with calling stuff over and over again
-	// I think teams/schedule/standings/types of plays etc
 
 	// So I think if it's not within 2 hours of a nats game
 	// We cycle through league standings and at the bottom have next Nats game
