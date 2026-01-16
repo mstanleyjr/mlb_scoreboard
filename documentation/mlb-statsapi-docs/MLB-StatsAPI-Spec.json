@@ -31117,6 +31117,14 @@
           "league": {
             "$ref": "#/components/schemas/League"
           },
+          "wins": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "losses": {
+            "type": "integer",
+            "format": "int32"
+          },
           "season": {
             "type": "string"
           },

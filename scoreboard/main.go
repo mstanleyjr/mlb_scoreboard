@@ -91,9 +91,18 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 		default:
 		}
 
+		standingsMap := make(map[int32]statsapi.StandingsRestObject)
+		if nationalLeagueDivisionStandingRes.Latest() != nil {
+			standingsMap[NATIONAL_LEAGUE_ID] = *nationalLeagueDivisionStandingRes.Latest()
+		}
+		if americanLeagueDivisionStandingRes.Latest() != nil {
+			standingsMap[AMERICAN_LEAGUE_ID] = *americanLeagueDivisionStandingRes.Latest()
+		}
+
 		scoreboardInfo := ScoreboardInformation{
 			LeagueMap:               leagueMap,
 			Schedule:                scheduleRes.Latest(),
+			Standings:               standingsMap,
 			NationalLeagueStandings: nationalLeagueDivisionStandingRes.Latest(),
 			AmericanLeagueStandings: americanLeagueDivisionStandingRes.Latest(),
 		}
@@ -107,10 +116,9 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 			LoadingScreen()
 		} else if activeGame != nil {
 			fmt.Println("Active game found! Displaying live game data for game ID: ", activeGame)
-
+			ActiveGameDisplay(ctx, *activeGame, mlbClient, controller)
 		} else {
 			pages[pageIndex](scoreboardInfo)
-
 			pageIndex++
 			if pageIndex == len(pages) {
 				pageIndex = 0
