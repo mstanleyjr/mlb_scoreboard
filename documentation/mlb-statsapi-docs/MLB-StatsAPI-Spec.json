@@ -17778,7 +17778,15 @@
         }
       },
       "GameTypeEnum": {
-        "type": "string",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
         "enum": [
           "SPRING_TRAINING",
           "REGULAR_SEASON",

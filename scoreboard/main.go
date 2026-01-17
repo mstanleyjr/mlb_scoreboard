@@ -41,7 +41,14 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 		return
 	}
 
+	gameTypes, err := mlbClient.GetMLBGameTypes(ctx)
+	if err != nil {
+		println("Error getting game types: ", err.Error())
+		return
+	}
+
 	leagueMap := BuildLeagueDivisionLookup(leagues, divisions)
+	gameTypeMap := BuildGameTypeLookup(gameTypes)
 
 	scheduleFetch := func(ctx context.Context) (statsapi.ScheduleRestObject, error) {
 		return mlbClient.GetMLBSchedule(ctx, NATIONALS_TEAM_ID)
@@ -64,17 +71,20 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 	loopInterval := 1 * time.Second
 
 	pages := make([]func(scoreboardInfo ScoreboardInformation), 0)
-	for _, league := range leagueMap {
-		for divisionIndex := range league.Divisions {
-			li := *league.League.Id
-			di := divisionIndex
-			pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-				DivisionStandingsDisplay(scoreboardInfo, li, di, controller)
-			})
-		}
-	}
+	//for _, league := range leagueMap {
+	//	for divisionIndex := range league.Divisions {
+	//		li := *league.League.Id
+	//		di := divisionIndex
+	//		pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+	//			DivisionStandingsDisplay(scoreboardInfo, li, di, controller)
+	//		})
+	//	}
+	//}
 	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-		NextMatchupDisplay(scoreboardInfo, controller)
+		NextMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
+	})
+	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+		LastMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
 	})
 
 	pageIndex := 0
@@ -105,6 +115,7 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 			Standings:               standingsMap,
 			NationalLeagueStandings: nationalLeagueDivisionStandingRes.Latest(),
 			AmericanLeagueStandings: americanLeagueDivisionStandingRes.Latest(),
+			GameTypeMap:             gameTypeMap,
 		}
 
 		activeGame, err := FindActiveGame(scoreboardInfo)
@@ -124,7 +135,9 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 				pageIndex = 0
 			}
 		}
-		// If it's within 1 hour of a game start we'll need to switch to something else
+		// If it's within 1 hour of a game start we'll need to switch to something else (or why?) We have the matchup page anyway
+
+		// Okay so I think let's build the "last game" stuff and then can simulate a game game using an old one and debugging on the second
 
 		select {
 		case <-ctx.Done():

@@ -2,6 +2,7 @@ package scoreboard
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/mstanleyjr/mlb_scoreboard/third-party/oapi/statsapi"
@@ -27,6 +28,14 @@ func BuildLeagueDivisionLookup(leagues statsapi.LeagueResponseObject, divisions 
 			league.Divisions = append(league.Divisions, division)
 			lookup[leagueID] = league
 		}
+	}
+	return lookup
+}
+
+func BuildGameTypeLookup(gametypes []statsapi.GameTypeEnum) map[string]string {
+	lookup := make(map[string]string)
+	for _, gameType := range gametypes {
+		lookup[*gameType.Id] = *gameType.Description
 	}
 	return lookup
 }
@@ -57,6 +66,20 @@ func FindActiveGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemR
 	return nil, nil
 }
 
+func FindNextScheduledGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemRestObject, error) {
+	if info.Schedule == nil || len(*info.Schedule.Dates) == 0 {
+		return nil, nil
+	}
+	return nextScheduledGame(info)
+}
+
+func FindLastCompletedGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemRestObject, error) {
+	if info.Schedule == nil || len(*info.Schedule.Dates) == 0 {
+		return nil, nil
+	}
+	return previousCompletedGame(info)
+}
+
 func DisplayLoop(condCheckInterval time.Duration, displayDuration time.Duration, controller *DisplayController) {
 	fmt.Println("DisplayLoop")
 
@@ -66,12 +89,13 @@ func DisplayLoop(condCheckInterval time.Duration, displayDuration time.Duration,
 	// So I could these functions display and then watch for the interrupt to unlock and allow the other
 	count := 0
 	for {
-		controller.Mu.Lock()
 		select {
 		case <-done:
 			ticker.Stop()
+			fmt.Print("\n")
 			return
 		case <-ticker.C:
+			controller.Mu.Lock()
 			// Check the Cond and unlock and return
 			// Then the other can lock and do whatever
 			for controller.Paused {
@@ -79,9 +103,6 @@ func DisplayLoop(condCheckInterval time.Duration, displayDuration time.Duration,
 				controller.Cond.Wait()
 			}
 			count++
-			if count%6 == 0 {
-				fmt.Print("\n")
-			}
 			fmt.Print(count)
 			controller.Mu.Unlock()
 		}
@@ -106,4 +127,87 @@ func todayGames(info ScoreboardInformation) ([]statsapi.BaseballScheduleItemRest
 	}
 
 	return nil, nil
+}
+
+func nextScheduledGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemRestObject, error) {
+	if info.Schedule == nil || len(*info.Schedule.Dates) == 0 {
+		return nil, nil
+	}
+
+	dates := *info.Schedule.Dates
+	sort.Slice(dates, func(i, j int) bool {
+		return dates[i].Date.Time.Before(dates[j].Date.Time)
+	})
+
+	currentUTCTime := time.Now().UTC()
+	for _, date := range *info.Schedule.Dates {
+		dt := date.Date.Time
+
+		// First equal or after current date
+		if dt.Equal(currentUTCTime) || dt.After(currentUTCTime) {
+			if len(*date.Games) > 0 {
+				for _, game := range *date.Games {
+					if *game.Status.AbstractGameCode == "P" {
+						return &game, nil
+					}
+				}
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func previousCompletedGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemRestObject, error) {
+	if info.Schedule == nil || len(*info.Schedule.Dates) == 0 {
+		return nil, nil
+	}
+	dates := *info.Schedule.Dates
+	sort.Slice(dates, func(i, j int) bool {
+		return dates[i].Date.Time.After(dates[j].Date.Time)
+	})
+	currentUTCTime := time.Now().UTC()
+
+	for _, date := range *info.Schedule.Dates {
+		dt := date.Date.Time
+
+		// First before current date
+		if dt.Equal(currentUTCTime) || dt.Before(currentUTCTime) {
+			if len(*date.Games) > 0 {
+				// Reverse iterate to find the last completed game
+				for i := len(*date.Games) - 1; i >= 0; i-- {
+					game := (*date.Games)[i]
+					if *game.Status.AbstractGameCode == "F" || *game.Status.AbstractGameCode == "O" {
+						return &game, nil
+					}
+				}
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func pitcherName(pitcher *statsapi.BaseballPersonRestObject) string {
+	if pitcher == nil || pitcher.FullName == nil {
+		return "TBD"
+	}
+	return *pitcher.FullName
+}
+
+func findPitcherDecision(game statsapi.BaseballGameRestObject, winner bool) string {
+	if game.LiveData.Decisions == nil {
+		return "TBD"
+	}
+	if winner {
+		if game.LiveData.Decisions.Winner != nil {
+			return *game.LiveData.Decisions.Winner.FullName
+		}
+	} else {
+		if game.LiveData.Decisions.Loser != nil {
+			return *game.LiveData.Decisions.Loser.FullName
+		}
+	}
+
+	return "TBD"
 }
