@@ -9,70 +9,6 @@ import (
 	"github.com/mstanleyjr/mlb_scoreboard/third-party/oapi/statsapi"
 )
 
-// We'll probably have to make a client at some point
-
-// Def need a struct
-
-type ScoreboardInformation struct {
-	LeagueMap               map[int32]League
-	Schedule                *statsapi.ScheduleRestObject
-	Standings               map[int32]statsapi.StandingsRestObject
-	NationalLeagueStandings *statsapi.StandingsRestObject
-	AmericanLeagueStandings *statsapi.StandingsRestObject
-	GameTypeMap             map[string]string
-}
-
-type ScoreboardDivision struct {
-	LeagueName string
-	Teams      []ScoreboardDivisionTeam
-}
-
-type ScoreboardDivisionTeam struct {
-	Name      string
-	Rank      int
-	Record    ScoreboardWinLossRecord
-	GamesBack string
-}
-
-type ScoreboardWinLossRecord struct {
-	Wins   int
-	Losses int
-}
-
-type ScoreboardNextMatchupTeam struct {
-	Name            string
-	ProbablePitcher string
-	Record          ScoreboardWinLossRecord
-}
-
-type ScoreboardNextMatchup struct {
-	AwayTeam ScoreboardNextMatchupTeam
-	HomeTeam ScoreboardNextMatchupTeam
-	DateTime time.Time
-	Venue    string
-	GameType string
-}
-
-type ScoreboardLastMatchup struct {
-	AwayTeam    ScoreboardLastMatchupTeam
-	HomeTeam    ScoreboardLastMatchupTeam
-	DateTime    time.Time
-	Venue       string
-	GameType    string
-	FinalInning int
-}
-
-type ScoreboardLastMatchupTeam struct {
-	Name     string
-	Record   ScoreboardWinLossRecord
-	Runs     int
-	Hits     int
-	Errors   int
-	LOB      int
-	Winner   bool
-	Decision string // Winning or losing pitcher
-}
-
 func LoadingScreen() {
 	println("Loading scoreboard data...")
 }
@@ -198,30 +134,22 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 		return
 	}
 
-	teams := *game.GameData.Teams
-	homeTeamName := *teams["home"].TeamName
-	awayTeamName := *teams["away"].TeamName
-	homeTeamRuns := *game.LiveData.Linescore.Teams.Home.Runs
-	awayTeamRuns := *game.LiveData.Linescore.Teams.Away.Runs
-	homeTeamHits := *game.LiveData.Linescore.Teams.Home.Hits
-	awayTeamHits := *game.LiveData.Linescore.Teams.Away.Hits
-	homeTeamErrors := *game.LiveData.Linescore.Teams.Home.Errors
-	awayTeamErrors := *game.LiveData.Linescore.Teams.Away.Errors
-	homeTeamLOB := *game.LiveData.Linescore.Teams.Home.LeftOnBase
-	awayTeamLOB := *game.LiveData.Linescore.Teams.Away.LeftOnBase
-
-	homeTeamWinner := homeTeamRuns > awayTeamRuns
-
-	// Lol there's no flag for who won the game so just have to compare run
-
-	// Want to get pitchers of record too
-	// Runs Hits Errors LOB
-	// Want if it was Spring Training or Regular Season or Post or whatever
+	homeTeam, err := getScoreboardLiveGameTeams(game, true)
+	if err != nil {
+		println("Error getting home team data: ", err.Error())
+		return
+	}
+	awayTeam, err := getScoreboardLiveGameTeams(game, false)
+	if err != nil {
+		println("Error getting away team data: ", err.Error())
+		return
+	}
+	homeTeamWinner := homeTeam.Runs > awayTeam.Runs
 
 	venue := *lastGame.Venue.Name
 	gameTime := *lastGame.GameDate
-	fmt.Println("Last game: ", awayTeamName, " vs ", homeTeamName, " at ", venue, " on ", gameTime)
-	fmt.Println("Final Score: ", awayTeamName, awayTeamRuns, " - ", homeTeamName, homeTeamRuns)
+	fmt.Println("Last game: ", awayTeam.Name, " vs ", homeTeam.Name, " at ", venue, " on ", gameTime)
+	fmt.Println("Final Score: ", awayTeam.Name, awayTeam.Runs, " - ", homeTeam.Name, homeTeam.Runs)
 
 	gameType := info.GameTypeMap[*lastGame.GameType]
 
@@ -229,28 +157,12 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 		FinalInning: int(*game.LiveData.Linescore.CurrentInning),
 		Venue:       *lastGame.Venue.Name,
 		AwayTeam: ScoreboardLastMatchupTeam{
-			Name: awayTeamName,
-			Record: ScoreboardWinLossRecord{
-				Wins:   int(*teams["away"].Record.LeagueRecord.Wins),
-				Losses: int(*teams["away"].Record.LeagueRecord.Losses),
-			},
-			Runs:     int(awayTeamRuns),
-			Hits:     int(awayTeamHits),
-			Errors:   int(awayTeamErrors),
-			LOB:      int(awayTeamLOB),
+			Team:     awayTeam,
 			Winner:   !homeTeamWinner,
 			Decision: findPitcherDecision(game, !homeTeamWinner),
 		},
 		HomeTeam: ScoreboardLastMatchupTeam{
-			Name: homeTeamName,
-			Record: ScoreboardWinLossRecord{
-				Wins:   int(*teams["home"].Record.LeagueRecord.Wins),
-				Losses: int(*teams["home"].Record.LeagueRecord.Losses),
-			},
-			Runs:     int(homeTeamRuns),
-			Hits:     int(homeTeamHits),
-			Errors:   int(homeTeamErrors),
-			LOB:      int(homeTeamLOB),
+			Team:     homeTeam,
 			Winner:   homeTeamWinner,
 			Decision: findPitcherDecision(game, homeTeamWinner),
 		},
@@ -276,19 +188,29 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 	}
 
 	// Looping duration
-	callInterval := time.Second
-
-	currStartTime := liveGame.GameData.Datetime.DateTime
-	currEndTime := currStartTime.Add(callInterval)
+	callInterval := time.Second * 1
 
 	for *liveGame.GameData.Status.AbstractGameCode == "L" {
+
+		// Make a function that gets us RHEL, pitcher, catcher, BSO, bases and last play info if it exists
 		// LiveGame Process and display
-		DisplayLoop(100*time.Microsecond, callInterval, controller)
-		liveGame, err = m.GetLiveGameDiffPatch(ctx, *game.GamePk, currStartTime, &currEndTime)
+
+		gameInfo, err := getLiveGameInfo(liveGame)
+		if err != nil {
+			println("Error getting live game info: ", err.Error())
+		}
+
+		gameInfo.GameType = *game.GameType
+
+		DisplayLoop(1*time.Second, callInterval, controller)
+		liveGame, err := m.GetLiveGame(ctx, *game.GamePk)
 		if err != nil {
 			println("Error getting live game data: ", err.Error())
 			return
 		}
+
+		fmt.Println("Displaying active game: ", liveGame.GameData.Datetime)
+
 	}
 
 	println("Finishing the ball game")

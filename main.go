@@ -2,8 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"sync"
+	"time"
 
+	//rgbmatrix "github.com/mcuadros/go-rpi-rgb-led-matrix"
 	"github.com/mstanleyjr/mlb_scoreboard/scoreboard"
 )
 
@@ -21,6 +25,22 @@ func main() {
 	//go radio.StartRadio(ctx, &wg, controller)
 
 	wg.Wait()
+
+	fmt.Println("HERE WE GO`")
+	err := os.Setenv("MATRIX_EMULATOR", "1")
+	if err != nil {
+		panic(err)
+	}
+
+	//m, _ := rgbmatrix.NewRGBLedMatrix(&rgbmatrix.DefaultConfig)
+	//c := rgbmatrix.NewCanvas(m)
+	//defer c.Close()
+	//
+	//draw.Draw(c, c.Bounds(), &image.Uniform{color.White}, image.ZP, draw.Src)
+	//
+	//c.Render()
+
+	time.Sleep(30 * time.Second)
 
 	//
 	// make a config object

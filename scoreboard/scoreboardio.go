@@ -13,6 +13,93 @@ type League struct {
 	Divisions []statsapi.DivisionRestObject
 }
 
+type ScoreboardInformation struct {
+	LeagueMap               map[int32]League
+	Schedule                *statsapi.ScheduleRestObject
+	Standings               map[int32]statsapi.StandingsRestObject
+	NationalLeagueStandings *statsapi.StandingsRestObject
+	AmericanLeagueStandings *statsapi.StandingsRestObject
+	GameTypeMap             map[string]string
+}
+
+type ScoreboardDivision struct {
+	LeagueName string
+	Teams      []ScoreboardDivisionTeam
+}
+
+type ScoreboardDivisionTeam struct {
+	Name      string
+	Rank      int
+	Record    ScoreboardWinLossRecord
+	GamesBack string
+}
+
+type ScoreboardWinLossRecord struct {
+	Wins   int
+	Losses int
+}
+
+type ScoreboardNextMatchupTeam struct {
+	Name            string
+	ProbablePitcher string
+	Record          ScoreboardWinLossRecord
+}
+
+type ScoreboardNextMatchup struct {
+	AwayTeam ScoreboardNextMatchupTeam
+	HomeTeam ScoreboardNextMatchupTeam
+	DateTime time.Time
+	Venue    string
+	GameType string
+}
+
+type ScoreboardLastMatchup struct {
+	AwayTeam    ScoreboardLastMatchupTeam
+	HomeTeam    ScoreboardLastMatchupTeam
+	DateTime    time.Time
+	Venue       string
+	GameType    string
+	FinalInning int
+}
+
+type ScoreboardLastMatchupTeam struct {
+	Team     ScoreboardLiveGameTeam
+	Winner   bool
+	Decision string // Winning or losing pitcher
+}
+
+type ScoreboardLiveGame struct {
+	AwayTeam              ScoreboardLiveGameTeam
+	HomeTeam              ScoreboardLiveGameTeam
+	Inning                int
+	HalfInning            string
+	Outs                  int
+	Balls                 int
+	Strikes               int
+	CurrentPitcher        string
+	CurrentBatter         string
+	CurrentBatterPosition string
+	Venue                 string
+	GameType              string
+	LastPlay              string
+}
+
+type ScoreboardLiveGameTeam struct {
+	Name      string
+	ShortName string
+	Record    ScoreboardWinLossRecord
+	Runs      int
+	Hits      int
+	Errors    int
+	LOB       int
+}
+
+type ScoreboardLiveGameBases struct {
+	First  bool
+	Second bool
+	Third  bool
+}
+
 func BuildLeagueDivisionLookup(leagues statsapi.LeagueResponseObject, divisions statsapi.DivisionsRestObject) map[int32]League {
 	lookup := make(map[int32]League)
 	for _, league := range leagues.Leagues {
@@ -210,4 +297,166 @@ func findPitcherDecision(game statsapi.BaseballGameRestObject, winner bool) stri
 	}
 
 	return "TBD"
+}
+
+func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, error) {
+	if game.LiveData == nil {
+		return ScoreboardLiveGame{}, fmt.Errorf("no live data available")
+	}
+
+	homeTeam, err := getScoreboardLiveGameTeams(game, true)
+	if err != nil {
+		return ScoreboardLiveGame{}, err
+	}
+	awayTeam, err := getScoreboardLiveGameTeams(game, false)
+	if err != nil {
+		return ScoreboardLiveGame{}, err
+	}
+
+	var inning, outs, balls, strikes, batterId int
+	var halfInning, currentPitcher, currentBatter, currentBatterPosition, venue, lastPlay string
+
+	if game.LiveData.Linescore != nil {
+		if game.LiveData.Linescore.CurrentInning != nil {
+			inning = int(*game.LiveData.Linescore.CurrentInning)
+		}
+		if game.LiveData.Linescore.InningHalf != nil {
+			halfInning = *game.LiveData.Linescore.InningHalf
+		}
+
+		// TODO: Might need to do current play count
+		if game.LiveData.Linescore.Outs != nil {
+			outs = int(*game.LiveData.Linescore.Outs)
+		}
+		if game.LiveData.Linescore.Balls != nil {
+			balls = int(*game.LiveData.Linescore.Balls)
+		}
+		if game.LiveData.Linescore.Strikes != nil {
+			strikes = int(*game.LiveData.Linescore.Strikes)
+		}
+
+		if game.LiveData.Plays.CurrentPlay.Matchup.Batter != nil {
+			currentBatter = *game.LiveData.Plays.CurrentPlay.Matchup.Batter.FullName
+			batterId = int(*game.LiveData.Plays.CurrentPlay.Matchup.Batter.Id)
+			teams := *game.LiveData.Boxscore.Teams
+			if teams != nil {
+				if halfInning == "top" {
+					players := *teams["away"].Players
+					idKey := "ID" + fmt.Sprint(batterId)
+
+					person, exists := players[idKey]
+					if exists && person.Position != nil {
+						currentBatterPosition = *person.Position.Name
+					}
+				} else {
+					players := *teams["home"].Players
+					idKey := "ID" + fmt.Sprint(batterId)
+
+					person, exists := players[idKey]
+					if exists && person.Position != nil {
+						currentBatterPosition = *person.Position.Name
+					}
+				}
+			}
+		}
+
+		if game.LiveData.Plays.CurrentPlay.Matchup.Pitcher != nil {
+			currentPitcher = *game.LiveData.Plays.CurrentPlay.Matchup.Pitcher.FullName
+		}
+
+		if game.GameData.Venue != nil && game.GameData.Venue.Name != nil {
+			venue = *game.GameData.Venue.Name
+		}
+
+		if game.LiveData.Plays.AllPlays != nil && len(*game.LiveData.Plays.AllPlays) > 0 {
+			lastPlayData := (*game.LiveData.Plays.AllPlays)[len(*game.LiveData.Plays.AllPlays)-1]
+			if lastPlayData.Result != nil && lastPlayData.Result.Description != nil {
+				lastPlay = *lastPlayData.Result.Event
+			}
+		}
+
+		// Kind of excited to deal with the play events later, I'll update that then with a G6-2 kind of thing
+		// I htink for that one it's a current play deal when the result pops up
+		//Then use the credits
+	}
+
+	return ScoreboardLiveGame{
+		AwayTeam:              awayTeam,
+		HomeTeam:              homeTeam,
+		Inning:                inning,
+		HalfInning:            halfInning,
+		Outs:                  outs,
+		Balls:                 balls,
+		Strikes:               strikes,
+		CurrentPitcher:        currentPitcher,
+		CurrentBatter:         currentBatter,
+		CurrentBatterPosition: currentBatterPosition,
+		Venue:                 venue,
+		LastPlay:              lastPlay,
+	}, nil
+}
+
+func getScoreboardLiveGameTeams(game statsapi.BaseballGameRestObject, homeTeam bool) (ScoreboardLiveGameTeam, error) {
+	if game.GameData == nil || game.LiveData == nil || game.GameData.Teams == nil {
+		return ScoreboardLiveGameTeam{}, fmt.Errorf("no game data or live data available")
+	}
+	teams := *game.GameData.Teams
+
+	teamString := "away"
+	if homeTeam {
+		teamString = "home"
+	}
+
+	teamData := teams[teamString]
+	if teamData.TeamName == nil || teamData.Abbreviation == nil {
+		return ScoreboardLiveGameTeam{}, fmt.Errorf("incomplete team data for %s", teamString)
+	}
+
+	linescore := game.LiveData.Linescore.Teams.Away
+	if homeTeam {
+		linescore = game.LiveData.Linescore.Teams.Home
+	}
+
+	var name string
+	if teamData.Name != nil {
+		name = *teamData.Name
+	}
+
+	var shortName string
+	if teamData.Abbreviation != nil {
+		shortName = *teamData.Abbreviation
+	}
+
+	var record ScoreboardWinLossRecord
+	if teamData.Record.LeagueRecord != nil {
+		record = ScoreboardWinLossRecord{
+			Wins:   int(*teamData.Record.LeagueRecord.Wins),
+			Losses: int(*teamData.Record.LeagueRecord.Losses),
+		}
+	}
+
+	var runs, hits, errors, lob int
+	if linescore.Runs != nil {
+		runs = int(*linescore.Runs)
+	}
+	if linescore.Hits != nil {
+		hits = int(*linescore.Hits)
+	}
+	if linescore.Errors != nil {
+		errors = int(*linescore.Errors)
+	}
+	if linescore.LeftOnBase != nil {
+		lob = int(*linescore.LeftOnBase)
+	}
+
+	return ScoreboardLiveGameTeam{
+		Name:      name,
+		ShortName: shortName,
+		Record:    record,
+		Runs:      runs,
+		Hits:      hits,
+		Errors:    errors,
+		LOB:       lob,
+	}, nil
+
 }

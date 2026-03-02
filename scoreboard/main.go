@@ -71,15 +71,15 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 	loopInterval := 1 * time.Second
 
 	pages := make([]func(scoreboardInfo ScoreboardInformation), 0)
-	//for _, league := range leagueMap {
-	//	for divisionIndex := range league.Divisions {
-	//		li := *league.League.Id
-	//		di := divisionIndex
-	//		pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-	//			DivisionStandingsDisplay(scoreboardInfo, li, di, controller)
-	//		})
-	//	}
-	//}
+	for _, league := range leagueMap {
+		for divisionIndex := range league.Divisions {
+			li := *league.League.Id
+			di := divisionIndex
+			pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+				DivisionStandingsDisplay(scoreboardInfo, li, di, controller)
+			})
+		}
+	}
 	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
 		NextMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
 	})
@@ -126,7 +126,7 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 		if !IsDataLoaded(scoreboardInfo) {
 			LoadingScreen()
 		} else if activeGame != nil {
-			fmt.Println("Active game found! Displaying live game data for game ID: ", activeGame)
+			fmt.Println("Active game found! Displaying live game data for game ID: ", *activeGame)
 			ActiveGameDisplay(ctx, *activeGame, mlbClient, controller)
 		} else {
 			pages[pageIndex](scoreboardInfo)

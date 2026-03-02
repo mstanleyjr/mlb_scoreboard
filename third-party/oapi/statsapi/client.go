@@ -10,7 +10,7 @@ import (
 const CLIENT_SERVER = "https://statsapi.mlb.com"
 const MLB_SPORTS_ID int32 = 1
 const MLB_SEASON = "2026"
-const TIMECODE_LAYOUT = "YYYYMMDD_HHMMSS"
+const TIMECODE_LAYOUT = "20060102_150405"
 
 type MLBClient struct {
 	client *Client
@@ -174,10 +174,8 @@ func (m *MLBClient) GetLiveGame(ctx context.Context, gamePk int32) (BaseballGame
 	return liveGame, nil
 }
 
-func (m *MLBClient) GetLiveGameDiffPatch(ctx context.Context, gamePk int32, startTime *time.Time, endTime *time.Time) (BaseballGameRestObject, error) {
+func (m *MLBClient) GetLiveGameDiffPatch(ctx context.Context, gamePk int32, startTime time.Time, endTime time.Time) (BaseballGameRestObject, error) {
 	fmt.Println("Getting Live Game Data Diff Patch")
-
-	// TODO: Maybe need to fix this
 
 	//20250928_190807
 	startTimeCode := startTime.Format(TIMECODE_LAYOUT)
@@ -192,16 +190,14 @@ func (m *MLBClient) GetLiveGameDiffPatch(ctx context.Context, gamePk int32, star
 		return BaseballGameRestObject{}, err
 	}
 
-	var liveGamePatch LiveGameV1Response
+	var liveGamePatch BaseballGameRestObject
 	err = json.NewDecoder(resp.Body).Decode(&liveGamePatch)
 	if err != nil {
 		println("Error decoding live game diff patch response: ", err.Error())
 		return BaseballGameRestObject{}, err
 	}
 
-	game := liveGamePatch.ApplicationjsonCharsetUTF8200
-
-	return *game, nil
+	return liveGamePatch, nil
 }
 
 func (m *MLBClient) GetMLBGameTypes(ctx context.Context) ([]GameTypeEnum, error) {
