@@ -209,8 +209,8 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 			return
 		}
 
-		fmt.Println("Displaying active game: ", liveGame.GameData.Datetime)
-
+		fmt.Printf("Displaying active game: %+v\n", liveGame.GameData.Datetime)
+		fmt.Printf("gameInfo:  %+v\n\n", gameInfo)
 	}
 
 	println("Finishing the ball game")

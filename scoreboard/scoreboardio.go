@@ -360,6 +360,8 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 			}
 		}
 
+		// TODO: Make a mapping of position ids to names so I can just pull that instead of doing this rigamarole every time.
+
 		if game.LiveData.Plays.CurrentPlay.Matchup.Pitcher != nil {
 			currentPitcher = *game.LiveData.Plays.CurrentPlay.Matchup.Pitcher.FullName
 		}
@@ -368,12 +370,29 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 			venue = *game.GameData.Venue.Name
 		}
 
-		if game.LiveData.Plays.AllPlays != nil && len(*game.LiveData.Plays.AllPlays) > 0 {
-			lastPlayData := (*game.LiveData.Plays.AllPlays)[len(*game.LiveData.Plays.AllPlays)-1]
-			if lastPlayData.Result != nil && lastPlayData.Result.Description != nil {
-				lastPlay = *lastPlayData.Result.Event
+		if game.LiveData.Plays.CurrentPlay.AtBatIndex != nil {
+			if *game.LiveData.Plays.CurrentPlay.AtBatIndex > 0 {
+				// The current at bat starts as soon as the last one ends, so we can use the at bat index to know when to update the last play
+				lastPlayIndex := int(*game.LiveData.Plays.CurrentPlay.AtBatIndex) - 1
+				if game.LiveData.Plays.AllPlays != nil && len(*game.LiveData.Plays.AllPlays) > lastPlayIndex {
+					lastPlayData := (*game.LiveData.Plays.AllPlays)[lastPlayIndex]
+					if lastPlayData.Result != nil && lastPlayData.Result.Description != nil {
+						lastPlay = *lastPlayData.Result.Description
+					}
+				}
 			}
 		}
+		// Use the current play index and subtract one. The next at bat starts AS SOON as the other one ends.
+
+		//if game.LiveData.Plays.AllPlays != nil && len(*game.LiveData.Plays.AllPlays) > 0 {
+		//	lastPlayData := (*game.LiveData.Plays.AllPlays)[len(*game.LiveData.Plays.AllPlays)-1]
+		//	if lastPlayData.Result != nil && lastPlayData.Result.Description != nil {
+		//		lastPlay = *lastPlayData.Result.Event
+		//	}
+		//}
+
+		// I'll need what base is occupied for the next play and then can do some fun stuff with that, maybe even a little animation for the next play
+		// Interesting, we don't have the last play strikeout
 
 		// Kind of excited to deal with the play events later, I'll update that then with a G6-2 kind of thing
 		// I htink for that one it's a current play deal when the result pops up
