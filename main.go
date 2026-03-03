@@ -3,28 +3,33 @@ package main
 import (
 	"context"
 	"fmt"
+	"image"
+	"image/color"
 	"os"
 	"sync"
 	"time"
+
+	rgbmatrix "github.com/mcuadros/go-rpi-rgb-led-matrix"
+	"golang.org/x/image/draw"
 
 	//rgbmatrix "github.com/mcuadros/go-rpi-rgb-led-matrix"
 	"github.com/mstanleyjr/mlb_scoreboard/scoreboard"
 )
 
 func main() {
-	ctx, _ := context.WithCancel(context.Background())
+	_, _ = context.WithCancel(context.Background())
 
 	controller := &scoreboard.DisplayController{}
 	controller.Cond = sync.NewCond(&controller.Mu)
 	controller.Paused = false
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go scoreboard.StartScoreboard(ctx, &wg, controller)
+	//var wg sync.WaitGroup
+	//wg.Add(1)
+	//go scoreboard.StartScoreboard(ctx, &wg, controller)
 	//wg.Add(1)
 	//go radio.StartRadio(ctx, &wg, controller)
 
-	wg.Wait()
+	//wg.Wait()
 
 	fmt.Println("HERE WE GO`")
 	err := os.Setenv("MATRIX_EMULATOR", "1")
@@ -32,13 +37,13 @@ func main() {
 		panic(err)
 	}
 
-	//m, _ := rgbmatrix.NewRGBLedMatrix(&rgbmatrix.DefaultConfig)
-	//c := rgbmatrix.NewCanvas(m)
-	//defer c.Close()
-	//
-	//draw.Draw(c, c.Bounds(), &image.Uniform{color.White}, image.ZP, draw.Src)
-	//
-	//c.Render()
+	m, _ := rgbmatrix.NewRGBLedMatrix(&rgbmatrix.DefaultConfig)
+	c := rgbmatrix.NewCanvas(m)
+	defer c.Close()
+
+	draw.Draw(c, c.Bounds(), &image.Uniform{color.White}, image.ZP, draw.Src)
+
+	c.Render()
 
 	time.Sleep(30 * time.Second)
 
