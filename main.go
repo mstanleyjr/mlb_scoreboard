@@ -35,46 +35,32 @@ func main() {
 
 	fmt.Println("HERE WE GO")
 
-	// Check if we should use the matrix emulator or skip it for development
+	// Check if we should use the matrix emulator
+	// Default is disabled for headless servers
 	useEmulator := os.Getenv("USE_MATRIX_EMULATOR") == "1"
 
-	if useEmulator {
-		// Check if DISPLAY is set (required for X11 emulator)
-		if os.Getenv("DISPLAY") == "" {
-			fmt.Println("Warning: USE_MATRIX_EMULATOR is set but DISPLAY is not configured")
-			fmt.Println()
-			fmt.Println("For SSH connections, you have two options:")
-			fmt.Println("  1. Enable X11 forwarding when connecting:")
-			fmt.Println("     ssh -X user@host")
-			fmt.Println("     Then run: USE_MATRIX_EMULATOR=1 go run main.go")
-			fmt.Println()
-			fmt.Println("  2. Run without the emulator (recommended for headless servers):")
-			fmt.Println("     go run main.go")
-			fmt.Println()
-			fmt.Println("Skipping matrix emulator initialization for this run")
-		} else {
-			err := os.Setenv("MATRIX_EMULATOR", "1")
-			if err != nil {
-				panic(err)
-			}
-
-			m, _ := rgbmatrix.NewRGBLedMatrix(&rgbmatrix.DefaultConfig)
-			c := rgbmatrix.NewCanvas(m)
-			defer func() {
-				_ = c.Close()
-			}()
-
-			draw.Draw(c, c.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
-
-			if err := c.Render(); err != nil {
-				fmt.Printf("Error rendering canvas: %v\n", err)
-			}
-
-			time.Sleep(30 * time.Second)
+	if useEmulator && os.Getenv("DISPLAY") != "" {
+		// Only initialize emulator if both conditions are met:
+		// 1. USE_MATRIX_EMULATOR=1 is explicitly set
+		// 2. DISPLAY environment variable is available (X11 is running)
+		err := os.Setenv("MATRIX_EMULATOR", "1")
+		if err != nil {
+			panic(err)
 		}
-	} else {
-		fmt.Println("Running in development mode without matrix hardware")
-		fmt.Println("To enable the LED matrix emulator, use: USE_MATRIX_EMULATOR=1 go run main.go")
+
+		m, _ := rgbmatrix.NewRGBLedMatrix(&rgbmatrix.DefaultConfig)
+		c := rgbmatrix.NewCanvas(m)
+		defer func() {
+			_ = c.Close()
+		}()
+
+		draw.Draw(c, c.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
+
+		if err := c.Render(); err != nil {
+			fmt.Printf("Error rendering canvas: %v\n", err)
+		}
+
+		time.Sleep(30 * time.Second)
 	}
 
 	//
