@@ -32,7 +32,7 @@ func main() {
 	//wg.Wait()
 
 	fmt.Println("HERE WE GO`")
-	err := os.Setenv("MATRIX_EMULATOR", "0")
+	err := os.Setenv("MATRIX_EMULATOR", "1")
 	if err != nil {
 		panic(err)
 	}
