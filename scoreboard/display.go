@@ -128,6 +128,8 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 		return
 	}
 
+	// Looks a little extra to reuse stuff.
+
 	game, err := client.GetLiveGame(ctx, *lastGame.GamePk)
 	if err != nil {
 		println("Error getting live game data for last completed game: ", err.Error())
@@ -190,28 +192,58 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 	// Looping duration
 	callInterval := time.Second * 1
 
+	var gameType string
+	if game.GameType != nil {
+		gameType = getGameTypeFromLookup(*game.GameType)
+		if gameType == "Regular Season" {
+			// For regular season we don't show the game type since it's just implied
+			gameType = ""
+		}
+	}
+
 	for *liveGame.GameData.Status.AbstractGameCode == "L" {
-
-		// Make a function that gets us RHEL, pitcher, catcher, BSO, bases and last play info if it exists
-		// LiveGame Process and display
-
 		gameInfo, err := getLiveGameInfo(liveGame)
 		if err != nil {
 			println("Error getting live game info: ", err.Error())
 		}
 
-		gameInfo.GameType = *game.GameType
+		gameInfo.GameType = gameType
 
 		DisplayLoop(1*time.Second, callInterval, controller)
-		liveGame, err := m.GetLiveGame(ctx, *game.GamePk)
+		latestInfo, err := m.GetLiveGame(ctx, *game.GamePk)
 		if err != nil {
 			println("Error getting live game data: ", err.Error())
 			return
 		}
+		liveGame = latestInfo
 
 		fmt.Printf("Displaying active game: %+v\n", liveGame.GameData.Datetime)
 		fmt.Printf("gameInfo:  %+v\n\n", gameInfo)
 	}
 
 	println("Finishing the ball game")
+}
+
+func LiveLookInDisplay(ctx context.Context, info ScoreboardInformation, m *statsapi.MLBClient, controller *DisplayController) {
+	gameIds := FindAllActiveGameIds(info)
+
+	callInterval := time.Second * 10
+	for _, gameId := range gameIds {
+		liveGame, err := m.GetLiveGame(ctx, gameId)
+		if err != nil {
+			println("Error getting live game data: ", err.Error())
+			continue
+		}
+
+		gameInfo, err := getLiveGameInfo(liveGame)
+		if err != nil {
+			println("Error getting live game info: ", err.Error())
+			continue
+		}
+
+		fmt.Printf("Live look-in for game ID %d: %+v\n", gameId, gameInfo)
+		DisplayLoop(1*time.Second, callInterval, controller)
+	}
+
+	println("Finishing live look-in display")
 }

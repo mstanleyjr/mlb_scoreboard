@@ -3,6 +3,7 @@ package scoreboard
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/mstanleyjr/mlb_scoreboard/third-party/oapi/statsapi"
@@ -15,7 +16,8 @@ type League struct {
 
 type ScoreboardInformation struct {
 	LeagueMap               map[int32]League
-	Schedule                *statsapi.ScheduleRestObject
+	TeamSchedule            *statsapi.ScheduleRestObject
+	TodaySchedule           *statsapi.ScheduleRestObject
 	Standings               map[int32]statsapi.StandingsRestObject
 	NationalLeagueStandings *statsapi.StandingsRestObject
 	AmericanLeagueStandings *statsapi.StandingsRestObject
@@ -71,6 +73,7 @@ type ScoreboardLastMatchupTeam struct {
 type ScoreboardLiveGame struct {
 	AwayTeam              ScoreboardLiveGameTeam
 	HomeTeam              ScoreboardLiveGameTeam
+	Bases                 ScoreboardLiveGameBases
 	Inning                int
 	HalfInning            string
 	Outs                  int
@@ -82,6 +85,7 @@ type ScoreboardLiveGame struct {
 	Venue                 string
 	GameType              string
 	LastPlay              string
+	LastPlayRBIs          int
 }
 
 type ScoreboardLiveGameTeam struct {
@@ -128,40 +132,51 @@ func BuildGameTypeLookup(gametypes []statsapi.GameTypeEnum) map[string]string {
 }
 
 func IsDataLoaded(info ScoreboardInformation) bool {
-	return info.AmericanLeagueStandings != nil || info.NationalLeagueStandings != nil || info.Schedule != nil
+	return info.AmericanLeagueStandings != nil || info.NationalLeagueStandings != nil || info.TeamSchedule != nil
 }
 
-func FindActiveGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemRestObject, error) {
-	if info.Schedule == nil || len(*info.Schedule.Dates) == 0 {
+func FindActiveTeamGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemRestObject, error) {
+	if info.TeamSchedule == nil || len(*info.TeamSchedule.Dates) == 0 {
 		return nil, nil
 	}
 
-	games, err := todayGames(info)
-	if err != nil {
-		return nil, err
-	}
-	if games == nil || len(games) == 0 {
-		return nil, nil
-	}
-
-	for _, game := range games {
-		if *game.Status.AbstractGameCode == "L" {
-			return &game, nil
+	for _, date := range *info.TeamSchedule.Dates {
+		for _, game := range *date.Games {
+			if *game.Status.AbstractGameCode == "L" {
+				return &game, nil
+			}
 		}
 	}
 
 	return nil, nil
 }
 
+func FindAllActiveGameIds(info ScoreboardInformation) []int32 {
+	activeGameIds := make([]int32, 0)
+	if info.TodaySchedule == nil || len(*info.TodaySchedule.Dates) == 0 {
+		return activeGameIds
+	}
+
+	for _, date := range *info.TodaySchedule.Dates {
+		for _, game := range *date.Games {
+			if *game.Status.AbstractGameCode == "L" {
+				activeGameIds = append(activeGameIds, *game.GamePk)
+			}
+		}
+	}
+
+	return activeGameIds
+}
+
 func FindNextScheduledGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemRestObject, error) {
-	if info.Schedule == nil || len(*info.Schedule.Dates) == 0 {
+	if info.TeamSchedule == nil || len(*info.TeamSchedule.Dates) == 0 {
 		return nil, nil
 	}
 	return nextScheduledGame(info)
 }
 
 func FindLastCompletedGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemRestObject, error) {
-	if info.Schedule == nil || len(*info.Schedule.Dates) == 0 {
+	if info.TeamSchedule == nil || len(*info.TeamSchedule.Dates) == 0 {
 		return nil, nil
 	}
 	return previousCompletedGame(info)
@@ -196,48 +211,21 @@ func DisplayLoop(condCheckInterval time.Duration, displayDuration time.Duration,
 	}
 }
 
-func todayGames(info ScoreboardInformation) ([]statsapi.BaseballScheduleItemRestObject, error) {
-	if info.Schedule == nil || len(*info.Schedule.Dates) == 0 {
-		return nil, nil
-	}
-
-	currentUTCTime := time.Now().UTC()
-	for _, date := range *info.Schedule.Dates {
-		dt := date.Date.Time
-		// TODO: const the layout
-		currentUTCDate := currentUTCTime.Format("2006-01-02")
-		dtDate := dt.Format("2006-01-02")
-
-		if currentUTCDate == dtDate {
-			return *date.Games, nil
-		}
-	}
-
-	return nil, nil
-}
-
 func nextScheduledGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemRestObject, error) {
-	if info.Schedule == nil || len(*info.Schedule.Dates) == 0 {
+	if info.TeamSchedule == nil || len(*info.TeamSchedule.Dates) == 0 {
 		return nil, nil
 	}
 
-	dates := *info.Schedule.Dates
+	dates := *info.TeamSchedule.Dates
 	sort.Slice(dates, func(i, j int) bool {
 		return dates[i].Date.Time.Before(dates[j].Date.Time)
 	})
 
-	currentUTCTime := time.Now().UTC()
-	for _, date := range *info.Schedule.Dates {
-		dt := date.Date.Time
-
-		// First equal or after current date
-		if dt.Equal(currentUTCTime) || dt.After(currentUTCTime) {
-			if len(*date.Games) > 0 {
-				for _, game := range *date.Games {
-					if *game.Status.AbstractGameCode == "P" {
-						return &game, nil
-					}
-				}
+	// So these dates and games are in order, so I can just do the next P game
+	for _, date := range *info.TeamSchedule.Dates {
+		for _, game := range *date.Games {
+			if *game.Status.AbstractGameCode == "P" {
+				return &game, nil
 			}
 		}
 	}
@@ -246,20 +234,26 @@ func nextScheduledGame(info ScoreboardInformation) (*statsapi.BaseballScheduleIt
 }
 
 func previousCompletedGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemRestObject, error) {
-	if info.Schedule == nil || len(*info.Schedule.Dates) == 0 {
+	if info.TeamSchedule == nil || len(*info.TeamSchedule.Dates) == 0 {
 		return nil, nil
 	}
-	dates := *info.Schedule.Dates
+	dates := *info.TeamSchedule.Dates
 	sort.Slice(dates, func(i, j int) bool {
 		return dates[i].Date.Time.After(dates[j].Date.Time)
 	})
-	currentUTCTime := time.Now().UTC()
 
-	for _, date := range *info.Schedule.Dates {
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		println("Error loading location: ", err.Error())
+		return nil, err
+	}
+
+	currTime := time.Now().In(loc)
+
+	for _, date := range *info.TeamSchedule.Dates {
 		dt := date.Date.Time
 
-		// First before current date
-		if dt.Equal(currentUTCTime) || dt.Before(currentUTCTime) {
+		if dt.Equal(currTime) || dt.Before(currTime) {
 			if len(*date.Games) > 0 {
 				// Reverse iterate to find the last completed game
 				for i := len(*date.Games) - 1; i >= 0; i-- {
@@ -313,18 +307,12 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 		return ScoreboardLiveGame{}, err
 	}
 
-	var inning, outs, balls, strikes, batterId int
+	var inning, outs, balls, strikes, batterId, lastPlayRBIs int
 	var halfInning, currentPitcher, currentBatter, currentBatterPosition, venue, lastPlay string
+	var bases ScoreboardLiveGameBases
 
 	if game.LiveData.Linescore != nil {
-		if game.LiveData.Linescore.CurrentInning != nil {
-			inning = int(*game.LiveData.Linescore.CurrentInning)
-		}
-		if game.LiveData.Linescore.InningHalf != nil {
-			halfInning = *game.LiveData.Linescore.InningHalf
-		}
 
-		// TODO: Might need to do current play count
 		if game.LiveData.Linescore.Outs != nil {
 			outs = int(*game.LiveData.Linescore.Outs)
 		}
@@ -335,18 +323,40 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 			strikes = int(*game.LiveData.Linescore.Strikes)
 		}
 
+		if game.LiveData.Linescore.CurrentInning != nil {
+			inning = int(*game.LiveData.Linescore.CurrentInning)
+		}
+
+		// TODO: Might be better done in the display logic.
+		if game.LiveData.Linescore.InningHalf != nil {
+			halfInning = *game.LiveData.Linescore.InningHalf
+			if outs == 3 {
+				if strings.ToLower(halfInning) == "top" {
+					halfInning = "Mid"
+				} else if strings.ToLower(halfInning) == "bottom" {
+					halfInning = "End"
+				}
+			}
+		}
+
+		bases = ScoreboardLiveGameBases{
+			First:  game.LiveData.Linescore.Offense.First != nil,
+			Second: game.LiveData.Linescore.Offense.Second != nil,
+			Third:  game.LiveData.Linescore.Offense.Third != nil,
+		}
+
 		if game.LiveData.Plays.CurrentPlay.Matchup.Batter != nil {
 			currentBatter = *game.LiveData.Plays.CurrentPlay.Matchup.Batter.FullName
 			batterId = int(*game.LiveData.Plays.CurrentPlay.Matchup.Batter.Id)
 			teams := *game.LiveData.Boxscore.Teams
 			if teams != nil {
-				if halfInning == "top" {
+				if strings.ToLower(halfInning) == "top" {
 					players := *teams["away"].Players
 					idKey := "ID" + fmt.Sprint(batterId)
 
 					person, exists := players[idKey]
 					if exists && person.Position != nil {
-						currentBatterPosition = *person.Position.Name
+						currentBatterPosition = *person.Position.Abbreviation
 					}
 				} else {
 					players := *teams["home"].Players
@@ -354,13 +364,14 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 
 					person, exists := players[idKey]
 					if exists && person.Position != nil {
-						currentBatterPosition = *person.Position.Name
+						currentBatterPosition = *person.Position.Abbreviation
 					}
 				}
 			}
 		}
 
 		// TODO: Make a mapping of position ids to names so I can just pull that instead of doing this rigamarole every time.
+		// Until then just the abbreviation is fine
 
 		if game.LiveData.Plays.CurrentPlay.Matchup.Pitcher != nil {
 			currentPitcher = *game.LiveData.Plays.CurrentPlay.Matchup.Pitcher.FullName
@@ -373,23 +384,24 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 		if game.LiveData.Plays.CurrentPlay.AtBatIndex != nil {
 			if *game.LiveData.Plays.CurrentPlay.AtBatIndex > 0 {
 				// The current at bat starts as soon as the last one ends, so we can use the at bat index to know when to update the last play
-				lastPlayIndex := int(*game.LiveData.Plays.CurrentPlay.AtBatIndex) - 1
+				lastPlayIndex := int(*game.LiveData.Plays.CurrentPlay.AtBatIndex)
 				if game.LiveData.Plays.AllPlays != nil && len(*game.LiveData.Plays.AllPlays) > lastPlayIndex {
 					lastPlayData := (*game.LiveData.Plays.AllPlays)[lastPlayIndex]
+
+					if lastPlayData.Result.Event == nil {
+						lastPlayIndex = lastPlayIndex - 1
+						lastPlayData = (*game.LiveData.Plays.AllPlays)[lastPlayIndex]
+					}
+
 					if lastPlayData.Result != nil && lastPlayData.Result.Description != nil {
 						lastPlay = *lastPlayData.Result.Description
+						if lastPlayData.Result.Rbi != nil {
+							lastPlayRBIs = int(*lastPlayData.Result.Rbi)
+						}
 					}
 				}
 			}
 		}
-		// Use the current play index and subtract one. The next at bat starts AS SOON as the other one ends.
-
-		//if game.LiveData.Plays.AllPlays != nil && len(*game.LiveData.Plays.AllPlays) > 0 {
-		//	lastPlayData := (*game.LiveData.Plays.AllPlays)[len(*game.LiveData.Plays.AllPlays)-1]
-		//	if lastPlayData.Result != nil && lastPlayData.Result.Description != nil {
-		//		lastPlay = *lastPlayData.Result.Event
-		//	}
-		//}
 
 		// I'll need what base is occupied for the next play and then can do some fun stuff with that, maybe even a little animation for the next play
 		// Interesting, we don't have the last play strikeout
@@ -402,6 +414,7 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 	return ScoreboardLiveGame{
 		AwayTeam:              awayTeam,
 		HomeTeam:              homeTeam,
+		Bases:                 bases,
 		Inning:                inning,
 		HalfInning:            halfInning,
 		Outs:                  outs,
@@ -412,6 +425,7 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 		CurrentBatterPosition: currentBatterPosition,
 		Venue:                 venue,
 		LastPlay:              lastPlay,
+		LastPlayRBIs:          lastPlayRBIs,
 	}, nil
 }
 
@@ -477,5 +491,35 @@ func getScoreboardLiveGameTeams(game statsapi.BaseballGameRestObject, homeTeam b
 		Errors:    errors,
 		LOB:       lob,
 	}, nil
+}
 
+func getGameTypeFromLookup(lookup string) string {
+	switch lookup {
+	case "S":
+		return "Spring Training"
+	case "R":
+		return "Regular Season"
+	case "F":
+		return "Wild Card Game"
+	case "D":
+		return "Division Series"
+	case "L":
+		return "League Championship Series"
+	case "W":
+		return "World Series"
+	case "C":
+		return "Championship"
+	case "N":
+		return "Nineteenth Century Series"
+	case "P":
+		return "Playoffs"
+	case "A":
+		return "All-Star Game"
+	case "I":
+		return "Intrasquad"
+	case "E":
+		return "Exhibition"
+	default:
+		return ""
+	}
 }

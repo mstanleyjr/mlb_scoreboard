@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const CLIENT_SERVER = "https://statsapi.mlb.com"
@@ -51,8 +53,8 @@ func (m *MLBClient) GetMLBTeams(ctx context.Context) (TeamsRestObject, error) {
 	return teams, nil
 }
 
-func (m *MLBClient) GetMLBSchedule(ctx context.Context, teamID int32) (ScheduleRestObject, error) {
-	fmt.Println("Getting MLB Schedule")
+func (m *MLBClient) GetMLBTeamSchedule(ctx context.Context, teamID int32) (ScheduleRestObject, error) {
+	fmt.Println("Getting MLB TeamSchedule")
 	var sportID *[]int32
 	sportID = &[]int32{MLB_SPORTS_ID}
 
@@ -77,6 +79,43 @@ func (m *MLBClient) GetMLBSchedule(ctx context.Context, teamID int32) (ScheduleR
 	err = json.NewDecoder(resp.Body).Decode(&schedule)
 	if err != nil {
 		println("Error decoding schedule response: ", err.Error())
+		return ScheduleRestObject{}, err
+	}
+
+	return schedule, nil
+}
+
+func (m *MLBClient) GetMLBGamesForCurrentDay(ctx context.Context) (ScheduleRestObject, error) {
+	fmt.Println("Getting MLB Games for Date")
+	var sportID *[]int32
+	sportID = &[]int32{MLB_SPORTS_ID}
+
+	// Time in PT for West Coast Games.
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		println("Error loading location: ", err.Error())
+		return ScheduleRestObject{}, err
+	}
+	currTime := time.Now().In(loc)
+
+	var reqDate *openapi_types.Date
+	reqDate = &openapi_types.Date{
+		Time: currTime,
+	}
+
+	resp, err := m.client.Schedule(ctx, &ScheduleParams{
+		SportId: sportID,
+		Date:    reqDate,
+	})
+	if err != nil {
+		println("Error getting games for date: ", err.Error())
+		return ScheduleRestObject{}, err
+	}
+
+	var schedule ScheduleRestObject
+	err = json.NewDecoder(resp.Body).Decode(&schedule)
+	if err != nil {
+		println("Error decoding games for date response: ", err.Error())
 		return ScheduleRestObject{}, err
 	}
 

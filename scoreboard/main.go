@@ -51,7 +51,7 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 	gameTypeMap := BuildGameTypeLookup(gameTypes)
 
 	scheduleFetch := func(ctx context.Context) (statsapi.ScheduleRestObject, error) {
-		return mlbClient.GetMLBSchedule(ctx, NATIONALS_TEAM_ID)
+		return mlbClient.GetMLBTeamSchedule(ctx, NATIONALS_TEAM_ID)
 	}
 	scheduleRes := NewResource[statsapi.ScheduleRestObject]("schedule", 5*time.Minute, 0, scheduleFetch)
 	scheduleRes.Start(ctx, wg)
@@ -68,23 +68,37 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 	americanLeagueDivisionStandingRes := NewResource[statsapi.StandingsRestObject]("division_standings", 5*time.Minute, 0, americanLeagueDivisionStandingFetch)
 	americanLeagueDivisionStandingRes.Start(ctx, wg)
 
+	todayScheduleFetch := func(ctx context.Context) (statsapi.ScheduleRestObject, error) {
+		return mlbClient.GetMLBGamesForCurrentDay(ctx)
+	}
+	todayScheduleRes := NewResource[statsapi.ScheduleRestObject]("today_schedule", 10*time.Second, 0, todayScheduleFetch)
+	todayScheduleRes.Start(ctx, wg)
+
 	loopInterval := 1 * time.Second
 
+	// Wondering if we could/should have a page for other live games if the Nats aren't playing .
+	// Just Home Away Inning RHEL, pitcher and batter maybe? Maybe the runners? // Line score is perfect for this
+	// I think offense first second third is not nil and boom.
+	// Do I have the runners for active game?
+
 	pages := make([]func(scoreboardInfo ScoreboardInformation), 0)
-	for _, league := range leagueMap {
-		for divisionIndex := range league.Divisions {
-			li := *league.League.Id
-			di := divisionIndex
-			pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-				DivisionStandingsDisplay(scoreboardInfo, li, di, controller)
-			})
-		}
-	}
+	//for _, league := range leagueMap {
+	//	for divisionIndex := range league.Divisions {
+	//		li := *league.League.Id
+	//		di := divisionIndex
+	//		pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+	//			DivisionStandingsDisplay(scoreboardInfo, li, di, controller)
+	//		})
+	//	}
+	//}
 	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
 		NextMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
 	})
 	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
 		LastMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
+	})
+	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+		LiveLookInDisplay(ctx, scoreboardInfo, mlbClient, controller)
 	})
 
 	pageIndex := 0
@@ -98,6 +112,7 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 			return
 		case <-nationalLeagueDivisionStandingRes.Done():
 		case <-americanLeagueDivisionStandingRes.Done():
+		case <-todayScheduleRes.Done():
 		default:
 		}
 
@@ -111,14 +126,15 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 
 		scoreboardInfo := ScoreboardInformation{
 			LeagueMap:               leagueMap,
-			Schedule:                scheduleRes.Latest(),
+			TeamSchedule:            scheduleRes.Latest(),
+			TodaySchedule:           todayScheduleRes.Latest(),
 			Standings:               standingsMap,
 			NationalLeagueStandings: nationalLeagueDivisionStandingRes.Latest(),
 			AmericanLeagueStandings: americanLeagueDivisionStandingRes.Latest(),
 			GameTypeMap:             gameTypeMap,
 		}
 
-		activeGame, err := FindActiveGame(scoreboardInfo)
+		activeGame, err := FindActiveTeamGame(scoreboardInfo)
 		if err != nil {
 			println("Error finding active game: ", err.Error())
 		}
@@ -135,9 +151,6 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 				pageIndex = 0
 			}
 		}
-		// If it's within 1 hour of a game start we'll need to switch to something else (or why?) We have the matchup page anyway
-
-		// Okay so I think let's build the "last game" stuff and then can simulate a game game using an old one and debugging on the second
 
 		select {
 		case <-ctx.Done():

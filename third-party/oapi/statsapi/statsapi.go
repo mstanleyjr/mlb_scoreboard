@@ -9899,7 +9899,7 @@ type ReviewReasonsParams struct {
 	Fields *[]string `form:"fields,omitempty" json:"fields,omitempty"`
 }
 
-// ScheduleParams defines parameters for Schedule.
+// ScheduleParams defines parameters for TeamSchedule.
 type ScheduleParams struct {
 	// CalendarTypes Comma delimited list of type of calendar types
 	CalendarTypes *[]CalendarTypes `form:"calendarTypes,omitempty" json:"calendarTypes,omitempty"`
@@ -25643,7 +25643,7 @@ func NewRunnerDetailTypesRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewScheduleRequest generates requests for Schedule
+// NewScheduleRequest generates requests for TeamSchedule
 func NewScheduleRequest(server string, params *ScheduleParams) (*http.Request, error) {
 	var err error
 
