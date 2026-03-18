@@ -76,21 +76,16 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 
 	loopInterval := 1 * time.Second
 
-	// Wondering if we could/should have a page for other live games if the Nats aren't playing .
-	// Just Home Away Inning RHEL, pitcher and batter maybe? Maybe the runners? // Line score is perfect for this
-	// I think offense first second third is not nil and boom.
-	// Do I have the runners for active game?
-
 	pages := make([]func(scoreboardInfo ScoreboardInformation), 0)
-	//for _, league := range leagueMap {
-	//	for divisionIndex := range league.Divisions {
-	//		li := *league.League.Id
-	//		di := divisionIndex
-	//		pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-	//			DivisionStandingsDisplay(scoreboardInfo, li, di, controller)
-	//		})
-	//	}
-	//}
+	for _, league := range leagueMap {
+		for divisionIndex := range league.Divisions {
+			li := *league.League.Id
+			di := divisionIndex
+			pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+				DivisionStandingsDisplay(scoreboardInfo, li, di, controller)
+			})
+		}
+	}
 	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
 		NextMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
 	})
@@ -159,17 +154,4 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 		case <-time.After(loopInterval):
 		}
 	}
-
-	// So I think if it's not within 2 hours of a nats game
-	// We cycle through league standings and at the bottom have next Nats game
-	// Maybe we also do a nats game for potential pitching matchups and time etc
-	// And a last game where we do Winner losser RHEL, total game time (final final/10)
-
-	// Then for game time we should draw that out but ultimately will just keep hitting the endpoint for the next play (that's been completed)
-	// Once we get that, we can draw the play
-	// Maybe at the top we have score RHEL BSO Pitcher/Batter and Inning
-	// The bottom we could have the last couple of plays? That'd be cool if there's enough room but that stuff I really can't do until I get the board going
-
-	// So we have to goroutines that give us the data except the live game data and we can just hit that one a lot and if there's a new completed play then update the board?
-
 }

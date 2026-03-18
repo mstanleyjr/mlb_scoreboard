@@ -128,8 +128,6 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 		return
 	}
 
-	// Looks a little extra to reuse stuff.
-
 	game, err := client.GetLiveGame(ctx, *lastGame.GamePk)
 	if err != nil {
 		println("Error getting live game data for last completed game: ", err.Error())
