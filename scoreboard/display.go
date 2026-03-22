@@ -128,6 +128,8 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 		return
 	}
 
+	status := *lastGame.Status.DetailedState
+
 	game, err := client.GetLiveGame(ctx, *lastGame.GamePk)
 	if err != nil {
 		println("Error getting live game data for last completed game: ", err.Error())
@@ -153,8 +155,12 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 
 	gameType := info.GameTypeMap[*lastGame.GameType]
 
+	finalInning := 0
+	if game.LiveData.Linescore.CurrentInning != nil {
+		finalInning = int(*game.LiveData.Linescore.CurrentInning)
+	}
 	displayInfo := ScoreboardLastMatchup{
-		FinalInning: int(*game.LiveData.Linescore.CurrentInning),
+		FinalInning: finalInning,
 		Venue:       *lastGame.Venue.Name,
 		AwayTeam: ScoreboardLastMatchupTeam{
 			Team:     awayTeam,
@@ -166,8 +172,9 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 			Winner:   homeTeamWinner,
 			Decision: findPitcherDecision(game, homeTeamWinner),
 		},
-		DateTime: *lastGame.GameDate,
-		GameType: gameType,
+		DateTime:   *lastGame.GameDate,
+		GameType:   gameType,
+		GameStatus: status,
 	}
 	fmt.Printf("displayinfo %+v\n", displayInfo)
 

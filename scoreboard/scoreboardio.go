@@ -59,6 +59,7 @@ type ScoreboardLastMatchup struct {
 	AwayTeam    ScoreboardLastMatchupTeam
 	HomeTeam    ScoreboardLastMatchupTeam
 	DateTime    time.Time
+	GameStatus  string
 	Venue       string
 	GameType    string
 	FinalInning int
