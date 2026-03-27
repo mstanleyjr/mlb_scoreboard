@@ -21,7 +21,7 @@ func main() {
 
 	// Create RGB LED matrix config with hardware pulse disabled
 	config := &rgbmatrix.DefaultConfig
-	config.DisableHardwarePulse = true
+	config.DisableHardwarePulsing = true
 
 	// Create RGB LED matrix
 	m, err := rgbmatrix.NewRGBLedMatrix(config)
