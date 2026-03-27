@@ -7,7 +7,7 @@ import (
 	"image/draw"
 	"time"
 
-	rgbmatrix "github.com/mcuadros/go-rpi-rgb-led-matrix"
+	rgbmatrix "github.com/tfk1410/go-rpi-rgb-led-matrix"
 )
 
 func main() {

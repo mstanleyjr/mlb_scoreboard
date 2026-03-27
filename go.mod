@@ -8,6 +8,7 @@ require (
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/labstack/echo/v4 v4.15.0
 	github.com/oapi-codegen/runtime v1.1.2
+	github.com/tfk1410/go-rpi-rgb-led-matrix v0.0.0-20210404121211-ed43f29cbccb
 )
 
 require (
@@ -25,8 +26,9 @@ require (
 	github.com/mailru/easyjson v0.9.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mcuadros/go-rpi-rgb-led-matrix v0.0.0-20180401002551-b26063b3169a // indirect
+	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
+	github.com/nsf/termbox-go v1.1.0 // indirect
 	github.com/oapi-codegen/oapi-codegen/v2 v2.5.1 // indirect
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
