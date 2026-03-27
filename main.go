@@ -38,12 +38,13 @@ var (
 func main() {
 	fmt.Println("HERE WE GOOOOO")
 
-	// Create RGB LED matrix config with hardware pulse disabled
+	// Create RGB LED matrix config
 	config := &rgbmatrix.DefaultConfig
-	config.DisableHardwarePulsing = true
+	config.DisableHardwarePulsing = false // Enable hardware pulsing for better quality
 	config.Rows = 32
 	config.Cols = 64
 	config.HardwareMapping = "adafruit-hat"
+	config.Brightness = 50 // Set reasonable brightness (0-100)
 
 	fmt.Printf("Config: Rows=%d, Cols=%d, Mapping=%s, DisableHardwarePulsing=%v\n",
 		config.Rows, config.Cols, config.HardwareMapping, config.DisableHardwarePulsing)
