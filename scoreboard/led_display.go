@@ -55,7 +55,7 @@ func DrawDivisionStandings(c *rgbmatrix.Canvas, division ScoreboardDivision) {
 }
 
 // DrawLiveGameScore renders a live game score to the LED matrix
-func DrawLiveGameScore(c *rgbmatrix.Canvas, game ScoreboardGame) {
+func DrawLiveGameScore(c *rgbmatrix.Canvas, game ScoreboardLiveGame) {
 	// Clear canvas
 	for x := 0; x < 64; x++ {
 		for y := 0; y < 64; y++ {
@@ -65,19 +65,20 @@ func DrawLiveGameScore(c *rgbmatrix.Canvas, game ScoreboardGame) {
 
 	// Draw away team on left
 	awayColor := GetTeamColor(game.AwayTeam.Name)
-	DrawText(c, 2, 5, game.AwayTeam.Name[:3], awayColor)
-	DrawLargeScore(c, 2, 15, game.AwayTeam.Score)
+	DrawText(c, 2, 5, game.AwayTeam.ShortName, awayColor)
+	DrawLargeScore(c, 2, 15, game.AwayTeam.Runs)
 
 	// Draw home team on right
 	homeColor := GetTeamColor(game.HomeTeam.Name)
-	DrawText(c, 47, 5, game.HomeTeam.Name[:3], homeColor)
-	DrawLargeScore(c, 47, 15, game.HomeTeam.Score)
+	DrawText(c, 47, 5, game.HomeTeam.ShortName, homeColor)
+	DrawLargeScore(c, 47, 15, game.HomeTeam.Runs)
 
 	// Draw inning/status in middle
-	DrawText(c, 25, 30, game.Status, color.RGBA{R: 200, G: 200, B: 200, A: 255})
+	inningStr := string(rune('0'+rune(game.Inning))) + ":" + game.HalfInning
+	DrawText(c, 25, 30, inningStr, color.RGBA{R: 200, G: 200, B: 200, A: 255})
 
 	// Draw bases (simplified)
-	DrawBases(c, 25, 40, game.Bases)
+	DrawBases(c, 25, 40, &game.Bases)
 }
 
 // DrawLargeScore draws a two-digit score in a larger format
@@ -141,7 +142,7 @@ func DrawBigDigit(c *rgbmatrix.Canvas, x, y int, digit int) {
 }
 
 // DrawBases draws the bases (simplified diamond shape)
-func DrawBases(c *rgbmatrix.Canvas, cx, cy int, bases *ScoreboardBases) {
+func DrawBases(c *rgbmatrix.Canvas, cx, cy int, bases *ScoreboardLiveGameBases) {
 	// Draw diamond outline
 	emptyCol := color.RGBA{R: 50, G: 50, B: 50, A: 255}
 	c.Set(cx, cy-3, emptyCol) // Home
