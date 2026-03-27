@@ -103,25 +103,34 @@ func main() {
 
 // DrawTestPattern draws a simple test pattern to verify the display is working
 func DrawTestPattern(c *rgbmatrix.Canvas) {
+	bounds := c.Bounds()
+	width := bounds.Max.X
+	height := bounds.Max.Y
+
 	// Draw a red border
-	for x := 0; x < 64; x++ {
+	for x := 0; x < width; x++ {
 		c.Set(x, 0, color.RGBA{R: 255, G: 0, B: 0, A: 255})
-		c.Set(x, 31, color.RGBA{R: 255, G: 0, B: 0, A: 255})
+		c.Set(x, height-1, color.RGBA{R: 255, G: 0, B: 0, A: 255})
 	}
-	for y := 0; y < 64; y++ {
+	for y := 0; y < height; y++ {
 		c.Set(0, y, color.RGBA{R: 255, G: 0, B: 0, A: 255})
-		c.Set(63, y, color.RGBA{R: 255, G: 0, B: 0, A: 255})
+		c.Set(width-1, y, color.RGBA{R: 255, G: 0, B: 0, A: 255})
 	}
 
 	// Draw a green square in the center
-	for x := 20; x < 44; x++ {
-		for y := 10; y < 22; y++ {
-			c.Set(x, y, color.RGBA{R: 0, G: 255, B: 0, A: 255})
+	centerX := width / 2
+	centerY := height / 2
+	squareSize := 8
+	for x := centerX - squareSize/2; x < centerX+squareSize/2; x++ {
+		for y := centerY - squareSize/2; y < centerY+squareSize/2; y++ {
+			if x >= 0 && x < width && y >= 0 && y < height {
+				c.Set(x, y, color.RGBA{R: 0, G: 255, B: 0, A: 255})
+			}
 		}
 	}
 
 	// Draw a blue dot in the very center
-	c.Set(32, 16, color.RGBA{R: 0, G: 0, B: 255, A: 255})
+	c.Set(centerX, centerY, color.RGBA{R: 0, G: 0, B: 255, A: 255})
 }
 
 // DrawText would be a helper to draw text to the canvas
