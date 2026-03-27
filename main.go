@@ -97,9 +97,24 @@ func main() {
 			// Clear canvas (black background)
 			draw.Draw(canvas, canvas.Bounds(), &image.Uniform{color.RGBA{R: 0, G: 0, B: 0, A: 255}}, image.ZP, draw.Src)
 
-			// TODO: Draw scoreboard content here
-			// For now, draw a test pattern
-			DrawTestPattern(canvas)
+			// Draw current display content
+			displayMutex.RLock()
+			switch currentDisplayType {
+			case DisplayTypeLoading:
+				DrawLoadingScreen(canvas)
+			case DisplayTypeDivisionStandings:
+				if division, ok := currentDisplayData.(scoreboard.ScoreboardDivision); ok {
+					scoreboard.DrawDivisionStandings(canvas, division)
+				}
+			case DisplayTypeLiveGame:
+				if game, ok := currentDisplayData.(scoreboard.ScoreboardLiveGame); ok {
+					scoreboard.DrawLiveGameScore(canvas, game)
+				}
+			default:
+				// Draw test pattern as fallback
+				DrawTestPattern(canvas)
+			}
+			displayMutex.RUnlock()
 
 			// Render to LED matrix
 			err := canvas.Render()
@@ -154,4 +169,52 @@ func DrawTestPattern(c *rgbmatrix.Canvas) {
 func DrawText(c *rgbmatrix.Canvas, x, y int, text string, col color.RGBA) {
 	// TODO: Implement text rendering
 	// This would require a font library or bitmap fonts
+}
+
+// DrawLoadingScreen draws the loading screen while data is being fetched
+func DrawLoadingScreen(c *rgbmatrix.Canvas) {
+	bounds := c.Bounds()
+	width := bounds.Max.X
+	height := bounds.Max.Y
+
+	// Clear canvas
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			c.Set(x, y, color.RGBA{R: 0, G: 0, B: 0, A: 255})
+		}
+	}
+
+	// Draw "LOADING" text in the center
+	loadingText := "LOADING"
+	textColor := color.RGBA{R: 255, G: 255, B: 0, A: 255}
+
+	// Center the text
+	textWidth := len(loadingText) * 4 // Approximate width
+	startX := (width - textWidth) / 2
+	startY := height / 2
+
+	for i, char := range loadingText {
+		x := startX + (i * 4)
+		y := startY
+
+		// Draw a simple character box
+		for j := 0; j < 3; j++ {
+			c.Set(x+j, y, textColor)
+			c.Set(x+j, y+4, textColor)
+		}
+		for j := 0; j < 5; j++ {
+			c.Set(x, y+j, textColor)
+			c.Set(x+2, y+j, textColor)
+		}
+	}
+
+	// Draw animated dots
+	dotY := startY + 8
+	for i := 0; i < 3; i++ {
+		dotX := startX + textWidth + 4 + (i * 6)
+		c.Set(dotX, dotY, textColor)
+		c.Set(dotX+1, dotY, textColor)
+		c.Set(dotX, dotY+1, textColor)
+		c.Set(dotX+1, dotY+1, textColor)
+	}
 }
