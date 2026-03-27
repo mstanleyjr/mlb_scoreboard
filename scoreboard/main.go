@@ -76,6 +76,12 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 
 	loopInterval := 1 * time.Second
 
+	batter, err := mlbClient.GetMLBPLayerStats(ctx, 695578)
+	if err != nil {
+		println("Error getting batter stats: ", err.Error())
+	}
+	fmt.Printf("Batter stats: %+v\n", batter)
+
 	pages := make([]func(scoreboardInfo ScoreboardInformation), 0)
 	for _, league := range leagueMap {
 		for divisionIndex := range league.Divisions {

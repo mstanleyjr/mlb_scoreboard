@@ -9326,7 +9326,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/StatsRestObject"
+                  "$ref": "#/components/schemas/PlayerStatsResponse"
                 }
               }
             }
@@ -16857,6 +16857,13 @@
           "STREAK"
         ]
       },
+      "StatGroupRestObject": {
+        "type": "object",
+        "properties": {
+          "group": {
+            "type": "string"
+          }}
+        },
       "CalculatedMetricRestObject": {
         "type": "object",
         "properties": {
@@ -23408,11 +23415,7 @@
             "type": "string"
           },
           "summary": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            },
-            "writeOnly": true
+            "type": "string",
           },
           "catchersInterference": {
             "type": "integer",
@@ -27447,11 +27450,7 @@
             "type": "string"
           },
           "summary": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            },
-            "writeOnly": true
+            "type": "string"
           },
           "catchersInterference": {
             "type": "integer",
@@ -27805,6 +27804,20 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Privilege"
+            }
+          }
+        }
+      },
+      "PlayerStatsResponse": {
+        "type": "object",
+        "properties": {
+          "copyright": {
+            "type": "string"
+          },
+          "stats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatContainerRestObject"
             }
           }
         }
@@ -30374,10 +30387,10 @@
             }
           },
           "type": {
-            "$ref": "#/components/schemas/StatType"
+            "$ref": "#/components/schemas/StatTypeRestObject"
           },
           "group": {
-            "$ref": "#/components/schemas/StatGroup"
+            "$ref": "#/components/schemas/StatGroupRestObject"
           },
           "totalSplits": {
             "type": "integer",
@@ -30466,6 +30479,258 @@
           },
           "summary": {
             "type": "string"
+          }
+        }
+      },
+      "DetailedStatDataRestObject": {
+        "type": "object",
+        "properties": {
+          "age": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "gamesPlayed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "gamesStarted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "groundOuts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "airOuts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "runs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "doubles": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "triples": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "homeRuns": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "strikeOuts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "baseOnBalls": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "intentionalWalks": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hits": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hitByPitch": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "avg": {
+            "type": "string"
+          },
+          "atBats": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "obp": {
+            "type": "string"
+          },
+          "slg": {
+            "type": "string"
+          },
+          "ops": {
+            "type": "string"
+          },
+          "caughtStealing": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "stolenBases": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "stolenBasePercentage": {
+            "type": "string"
+          },
+          "caughtStealingPercentage": {
+            "type": "string"
+          },
+          "groundIntoDoublePlay": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "numberOfPitches": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "plateAppearances": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalBases": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rbi": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "leftOnBase": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sacBunts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sacFlies": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "babip": {
+            "type": "string"
+          },
+          "groundOutsToAirouts": {
+            "type": "string"
+          },
+          "catchersInterference": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "atBatsPerHomeRun": {
+            "type": "string"
+          },
+          "era": {
+            "type": "string"
+          },
+          "inningsPitched": {
+            "type": "string"
+          },
+          "wins": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "losses": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "saves": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "saveOpportunities": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "holds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "blownSaves": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "earnedRuns": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "whip": {
+            "type": "string"
+          },
+          "battersFaced": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "outs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "gamesPitched": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "completeGames": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "shutouts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "strikes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "strikePercentage": {
+            "type": "string"
+          },
+          "hitBatsmen": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "balks": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "wildPitches": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pickoffs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "winPercentage": {
+            "type": "string"
+          },
+          "pitchesPerInning": {
+            "type": "string"
+          },
+          "gamesFinished": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "strikeoutWalkRatio": {
+            "type": "string"
+          },
+          "strikeoutsPer9Inn": {
+            "type": "string"
+          },
+          "walksPer9Inn": {
+            "type": "string"
+          },
+          "hitsPer9Inn": {
+            "type": "string"
+          },
+          "runsScoredPer9": {
+            "type": "string"
+          },
+          "homeRunsPer9": {
+            "type": "string"
+          },
+          "inheritedRunners": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inheritedRunnersScored": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -30621,7 +30886,7 @@
             "type": "string"
           },
           "stat": {
-            "$ref": "#/components/schemas/StatDataRestObject"
+            "$ref": "#/components/schemas/DetailedStatDataRestObject"
           },
           "stats": {
             "$ref": "#/components/schemas/GroupedStatDataRestObject"
@@ -30772,13 +31037,80 @@
           "SABERMETRICS_MULTI_TEAM"
         ]
       },
+      "StatTypeRestObject": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string"
+          }
+        },
+        "enum": [
+          "PROJECTED",
+          "PROJECTED_ROS",
+          "YEAR_BY_YEAR",
+          "YEAR_BY_YEAR_ADVANCED",
+          "YEAR_BY_YEAR_PLAYOFFS",
+          "SEASON",
+          "STANDARD",
+          "ADVANCED",
+          "CAREER",
+          "CAREER_REGULAR_SEASON",
+          "CAREER_ADVANCED",
+          "SEASON_ADVANCED",
+          "CAREER_STAT_SPLITS",
+          "CAREER_PLAYOFFS",
+          "GAME_LOG",
+          "PLAY_LOG",
+          "PITCH_LOG",
+          "METRIC_LOG",
+          "METRIC_AVERAGES",
+          "PITCH_ARSENAL",
+          "OUTS_ABOVE_AVERAGE",
+          "EXPECTED_STATISTICS",
+          "SABERMETRICS",
+          "SPRAY_CHART",
+          "TRACKING_STATISTICS",
+          "VS_PLAYER",
+          "VS_PLAYER_TOTAL",
+          "VS_PLAYER_5Y",
+          "VS_TEAM",
+          "VS_TEAM_5Y",
+          "VS_TEAM_TOTAL",
+          "LAST_X_GAMES",
+          "BY_DATE_RANGE",
+          "BY_DATE_RANGE_ADVANCED",
+          "BY_MONTH",
+          "BY_MONTH_PLAYOFFS",
+          "BY_DAY_OF_WEEK",
+          "BY_DAY_OF_WEEK_PLAYOFFS",
+          "HOME_AND_AWAY",
+          "HOME_AND_AWAY_PLAYOFFS",
+          "WIN_LOSS",
+          "WIN_LOSS_PLAYOFFS",
+          "RANKINGS",
+          "RANKINGS_BY_YEAR",
+          "STATS_SINGLE_SEASON",
+          "STATS_SINGLE_SEASON_ADVANCED",
+          "HOT_COLD_ZONES",
+          "AVAILABLE_STATS",
+          "OPPONENTS_FACED",
+          "GAME_TYPE_STATS",
+          "FIRST_YEAR_STATS",
+          "LAST_YEAR_STATS",
+          "STAT_SPLITS",
+          "STAT_SPLITS_ADVANCED",
+          "AT_GAME_START",
+          "VS_OPPONENTS",
+          "SABERMETRICS_MULTI_TEAM"
+        ]
+      },
       "Stats": {
         "type": "object",
         "properties": {
-          "allStats": {
+          "stats": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StatContainer"
+              "$ref": "#/components/schemas/StatContainerRestObject"
             }
           }
         }
@@ -30788,6 +31120,15 @@
         "properties": {
           "copyright": {
             "type": "string"
+          },
+          "batting": {
+            "$ref": "#/components/schemas/BattingData"
+          },
+          "pitching": {
+            "$ref": "#/components/schemas/PitchingData"
+          },
+          "fielding": {
+            "$ref": "#/components/schemas/FieldingData"
           }
         }
       },

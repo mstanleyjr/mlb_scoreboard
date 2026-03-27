@@ -255,3 +255,38 @@ func (m *MLBClient) GetMLBGameTypes(ctx context.Context) ([]GameTypeEnum, error)
 	}
 	return gameTypes, nil
 }
+
+func (m *MLBClient) GetMLBPLayerStats(ctx context.Context, playerID int32) (PlayerStatsResponse, error) {
+	seasonId := MLB_SEASON
+
+	resp, err := m.client.Stats3(ctx, playerID, &Stats3Params{
+		Stats:  []StatType{StatTypeSEASON},
+		Group:  &[]StatGroup{StatGroupHITTING, StatGroupPITCHING},
+		Season: &seasonId,
+	})
+	if err != nil {
+		println("Error getting player stats: ", err.Error())
+		return PlayerStatsResponse{}, err
+	}
+
+	//defer resp.Body.Close()
+	//
+	//bodyBytes, err := io.ReadAll(resp.Body)
+	//if err != nil {
+	//	println("Error reading body: %v", err)
+	//}
+	//
+	//// 4. Convert the byte slice to a string
+	//bodyString := string(bodyBytes)
+	//
+	//// Print the resulting JSON string
+	//fmt.Println(bodyString)
+
+	var stats PlayerStatsResponse
+	err = json.NewDecoder(resp.Body).Decode(&stats)
+	if err != nil {
+		println("Error decoding player stats response: ", err.Error())
+		return PlayerStatsResponse{}, err
+	}
+	return stats, nil
+}

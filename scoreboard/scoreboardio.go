@@ -43,7 +43,7 @@ type ScoreboardWinLossRecord struct {
 
 type ScoreboardNextMatchupTeam struct {
 	Name            string
-	ProbablePitcher string
+	ProbablePitcher ScoreboardPitcher
 	Record          ScoreboardWinLossRecord
 }
 
@@ -56,37 +56,40 @@ type ScoreboardNextMatchup struct {
 }
 
 type ScoreboardLastMatchup struct {
-	AwayTeam    ScoreboardLastMatchupTeam
-	HomeTeam    ScoreboardLastMatchupTeam
-	DateTime    time.Time
-	GameStatus  string
-	Venue       string
-	GameType    string
-	FinalInning int
+	AwayTeam       ScoreboardLastMatchupTeam
+	HomeTeam       ScoreboardLastMatchupTeam
+	DateTime       time.Time
+	GameStatus     string
+	Venue          string
+	GameType       string
+	FinalInning    int
+	WinningPitcher string
+	LosingPitcher  string
+	SavePitcher    string
 }
 
 type ScoreboardLastMatchupTeam struct {
-	Team     ScoreboardLiveGameTeam
-	Winner   bool
-	Decision string // Winning or losing pitcher
+	Team   ScoreboardLiveGameTeam
+	Winner bool
 }
 
 type ScoreboardLiveGame struct {
-	AwayTeam              ScoreboardLiveGameTeam
-	HomeTeam              ScoreboardLiveGameTeam
-	Bases                 ScoreboardLiveGameBases
-	Inning                int
-	HalfInning            string
-	Outs                  int
-	Balls                 int
-	Strikes               int
-	CurrentPitcher        string
-	CurrentBatter         string
-	CurrentBatterPosition string
-	Venue                 string
-	GameType              string
-	LastPlay              string
-	LastPlayRBIs          int
+	AwayTeam         ScoreboardLiveGameTeam
+	HomeTeam         ScoreboardLiveGameTeam
+	Bases            ScoreboardLiveGameBases
+	CurrentBatter    ScoreboardLiveGameBatter
+	CurrentPitcher   ScoreboardPitcher
+	Inning           int
+	HalfInning       string
+	Outs             int
+	Balls            int
+	Strikes          int
+	CurrentPitcherId int32
+	CurrentBatterId  int32
+	Venue            string
+	GameType         string
+	LastPlay         string
+	LastPlayRBIs     int
 }
 
 type ScoreboardLiveGameTeam struct {
@@ -104,6 +107,33 @@ type ScoreboardLiveGameBases struct {
 	Second bool
 	Third  bool
 }
+
+type ScoreboardPitcher struct {
+	Name   string
+	ERA    string
+	Hand   string
+	Wins   int32
+	Losses int32
+	Saves  int32
+}
+
+type ScoreboardLiveGameBatter struct {
+	Name                 string
+	CurrentPosition      string
+	SeasonBattingAverage string
+	SeasonOPS            string
+	GameHits             int32
+	GameAtBats           int32
+	Summary              string
+}
+
+type PitchingDecision string
+
+const (
+	PitchingDecisionWin  PitchingDecision = "win"
+	PitchingDecisionLoss PitchingDecision = "loss"
+	PitchingDecisionSave PitchingDecision = "save"
+)
 
 func BuildLeagueDivisionLookup(leagues statsapi.LeagueResponseObject, divisions statsapi.DivisionsRestObject) map[int32]League {
 	lookup := make(map[int32]League)
@@ -270,27 +300,26 @@ func previousCompletedGame(info ScoreboardInformation) (*statsapi.BaseballSchedu
 	return nil, nil
 }
 
-func pitcherName(pitcher *statsapi.BaseballPersonRestObject) string {
-	if pitcher == nil || pitcher.FullName == nil {
-		return "TBD"
-	}
-	return *pitcher.FullName
-}
-
-func findPitcherDecision(game statsapi.BaseballGameRestObject, winner bool) string {
+func findPitcherDecision(game statsapi.BaseballGameRestObject, decision PitchingDecision) string {
 	if game.LiveData.Decisions == nil {
 		return "TBD"
 	}
-	if winner {
+
+	switch decision {
+	case PitchingDecisionWin:
 		if game.LiveData.Decisions.Winner != nil {
 			return *game.LiveData.Decisions.Winner.FullName
 		}
-	} else {
+	case PitchingDecisionLoss:
 		if game.LiveData.Decisions.Loser != nil {
 			return *game.LiveData.Decisions.Loser.FullName
 		}
+	case PitchingDecisionSave:
+		if game.LiveData.Decisions.Save != nil {
+			return *game.LiveData.Decisions.Save.FullName
+		}
+	default:
 	}
-
 	return "TBD"
 }
 
@@ -308,8 +337,9 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 		return ScoreboardLiveGame{}, err
 	}
 
-	var inning, outs, balls, strikes, batterId, lastPlayRBIs int
-	var halfInning, currentPitcher, currentBatter, currentBatterPosition, venue, lastPlay string
+	var inning, outs, balls, strikes, lastPlayRBIs int
+	var halfInning, venue, lastPlay string
+	var currentPitcherId, currentBatterId int32
 	var bases ScoreboardLiveGameBases
 
 	if game.LiveData.Linescore != nil {
@@ -328,7 +358,6 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 			inning = int(*game.LiveData.Linescore.CurrentInning)
 		}
 
-		// TODO: Might be better done in the display logic.
 		if game.LiveData.Linescore.InningHalf != nil {
 			halfInning = *game.LiveData.Linescore.InningHalf
 			if outs == 3 {
@@ -347,35 +376,14 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 		}
 
 		if game.LiveData.Plays.CurrentPlay.Matchup.Batter != nil {
-			currentBatter = *game.LiveData.Plays.CurrentPlay.Matchup.Batter.FullName
-			batterId = int(*game.LiveData.Plays.CurrentPlay.Matchup.Batter.Id)
-			teams := *game.LiveData.Boxscore.Teams
-			if teams != nil {
-				if strings.ToLower(halfInning) == "top" {
-					players := *teams["away"].Players
-					idKey := "ID" + fmt.Sprint(batterId)
-
-					person, exists := players[idKey]
-					if exists && person.Position != nil {
-						currentBatterPosition = *person.Position.Abbreviation
-					}
-				} else {
-					players := *teams["home"].Players
-					idKey := "ID" + fmt.Sprint(batterId)
-
-					person, exists := players[idKey]
-					if exists && person.Position != nil {
-						currentBatterPosition = *person.Position.Abbreviation
-					}
-				}
-			}
+			currentBatterId = *game.LiveData.Plays.CurrentPlay.Matchup.Batter.Id
 		}
 
 		// TODO: Make a mapping of position ids to names so I can just pull that instead of doing this rigamarole every time.
 		// Until then just the abbreviation is fine
 
 		if game.LiveData.Plays.CurrentPlay.Matchup.Pitcher != nil {
-			currentPitcher = *game.LiveData.Plays.CurrentPlay.Matchup.Pitcher.FullName
+			currentPitcherId = *game.LiveData.Plays.CurrentPlay.Matchup.Pitcher.Id
 		}
 
 		if game.GameData.Venue != nil && game.GameData.Venue.Name != nil {
@@ -403,30 +411,22 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 				}
 			}
 		}
-
-		// I'll need what base is occupied for the next play and then can do some fun stuff with that, maybe even a little animation for the next play
-		// Interesting, we don't have the last play strikeout
-
-		// Kind of excited to deal with the play events later, I'll update that then with a G6-2 kind of thing
-		// I htink for that one it's a current play deal when the result pops up
-		//Then use the credits
 	}
 
 	return ScoreboardLiveGame{
-		AwayTeam:              awayTeam,
-		HomeTeam:              homeTeam,
-		Bases:                 bases,
-		Inning:                inning,
-		HalfInning:            halfInning,
-		Outs:                  outs,
-		Balls:                 balls,
-		Strikes:               strikes,
-		CurrentPitcher:        currentPitcher,
-		CurrentBatter:         currentBatter,
-		CurrentBatterPosition: currentBatterPosition,
-		Venue:                 venue,
-		LastPlay:              lastPlay,
-		LastPlayRBIs:          lastPlayRBIs,
+		AwayTeam:         awayTeam,
+		HomeTeam:         homeTeam,
+		Bases:            bases,
+		Inning:           inning,
+		HalfInning:       halfInning,
+		Outs:             outs,
+		Balls:            balls,
+		Strikes:          strikes,
+		CurrentPitcherId: currentPitcherId,
+		CurrentBatterId:  currentBatterId,
+		Venue:            venue,
+		LastPlay:         lastPlay,
+		LastPlayRBIs:     lastPlayRBIs,
 	}, nil
 }
 
@@ -523,4 +523,107 @@ func getGameTypeFromLookup(lookup string) string {
 	default:
 		return ""
 	}
+}
+
+func getScoreboardLiveGameBatter(batterStats statsapi.PlayerStatsResponse, liveGame statsapi.BaseballGameRestObject, gameInfo ScoreboardLiveGame) ScoreboardLiveGameBatter {
+	var name, currentBatterPosition, battingAverage, ops, summary string
+	var hits, atBats int32
+
+	if liveGame.LiveData.Plays.CurrentPlay.Matchup.Batter != nil {
+		name = *liveGame.LiveData.Plays.CurrentPlay.Matchup.Batter.FullName
+		teams := *liveGame.LiveData.Boxscore.Teams
+		if teams != nil {
+			var players map[string]statsapi.BaseballRosterEntryRestObject
+			if strings.ToLower(gameInfo.HalfInning) == "top" {
+				players = *teams["away"].Players
+
+			} else {
+				players = *teams["home"].Players
+			}
+
+			idKey := "ID" + fmt.Sprint(gameInfo.CurrentBatterId)
+
+			person, exists := players[idKey]
+			if exists {
+				if person.Position != nil {
+					currentBatterPosition = *person.Position.Abbreviation
+				}
+
+				if person.Stats != nil && person.Stats.Batting != nil {
+					hits = *person.Stats.Batting.Hits
+					atBats = *person.Stats.Batting.AtBats
+					summary = *person.Stats.Batting.Summary
+				}
+			}
+		}
+	}
+
+	if batterStats.Stats != nil {
+		for _, stat := range *batterStats.Stats {
+			if stat.Type != nil && stat.Type.DisplayName != nil {
+				if strings.ToLower(*stat.Type.DisplayName) == strings.ToLower(string(statsapi.StatTypeSEASON)) {
+					if stat.Splits != nil && len(*stat.Splits) > 0 {
+						split := (*stat.Splits)[0]
+						battingAverage = *split.Stat.Avg
+						ops = *split.Stat.Ops
+					}
+				}
+			}
+		}
+	}
+
+	return ScoreboardLiveGameBatter{
+		Name:                 name,
+		CurrentPosition:      currentBatterPosition,
+		SeasonBattingAverage: battingAverage,
+		SeasonOPS:            ops,
+		GameHits:             hits,
+		GameAtBats:           atBats,
+		Summary:              summary,
+	}
+}
+
+func getScoreboardLiveGamePitcher(pitcherStats statsapi.PlayerStatsResponse, liveGame statsapi.BaseballGameRestObject) ScoreboardPitcher {
+	var pitcherName, throwingHand string
+
+	if liveGame.LiveData.Plays.CurrentPlay.Matchup.Pitcher != nil {
+		pitcherName = *liveGame.LiveData.Plays.CurrentPlay.Matchup.Pitcher.FullName
+		throwingHand = *liveGame.LiveData.Plays.CurrentPlay.Matchup.PitchHand.Code
+	}
+
+	era, wins, losses, saves := GetScoreboardPitcherStats(pitcherStats)
+
+	return ScoreboardPitcher{
+		Name:   pitcherName,
+		ERA:    era,
+		Hand:   throwingHand,
+		Wins:   wins,
+		Losses: losses,
+		Saves:  saves,
+	}
+}
+
+func GetScoreboardPitcherStats(pitcherStats statsapi.PlayerStatsResponse) (era string, wins int32, losses int32, saves int32) {
+	era = "0.00"
+	wins = 0
+	losses = 0
+	saves = 0
+
+	if pitcherStats.Stats != nil {
+		for _, stat := range *pitcherStats.Stats {
+			if stat.Type != nil && stat.Type.DisplayName != nil {
+				if strings.ToLower(*stat.Type.DisplayName) == strings.ToLower(string(statsapi.StatTypeSEASON)) {
+					if stat.Splits != nil && len(*stat.Splits) > 0 {
+						split := (*stat.Splits)[0]
+						era = *split.Stat.Era
+						wins = *split.Stat.Wins
+						losses = *split.Stat.Losses
+						saves = *split.Stat.Saves
+					}
+				}
+			}
+		}
+	}
+
+	return era, wins, losses, saves
 }

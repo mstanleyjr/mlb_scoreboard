@@ -76,17 +76,66 @@ func NextMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 
 	teams := *nextGame.Teams
 
-	// TODO: We could use some validations here for nils
 	homeTeamName := teams["home"].Team.Name
 	awayTeamName := teams["away"].Team.Name
 	awayWins := teams["away"].LeagueRecord.Wins
 	awayLosses := teams["away"].LeagueRecord.Losses
 	homeWins := teams["home"].LeagueRecord.Wins
 	homeLosses := teams["home"].LeagueRecord.Losses
-	homePitcher := pitcherName(teams["home"].ProbablePitcher)
-	awayPitcher := pitcherName(teams["away"].ProbablePitcher)
-	venue := *nextGame.Venue.Name
 
+	var homePitcher, awayPitcher ScoreboardPitcher
+
+	if teams["home"].ProbablePitcher != nil {
+		homePitcherId := teams["home"].ProbablePitcher.Id
+		homePitcherName := teams["home"].ProbablePitcher.FullName
+		homePitchHand := teams["home"].ProbablePitcher.PitchHand.Code
+		homePitcherStats, err := client.GetMLBPLayerStats(ctx, *homePitcherId)
+		if err != nil {
+			println("Error getting home pitcher stats: ", err.Error())
+		}
+
+		homePitcherERA, homePitcherWins, homePitcherLosses, homePitcherSaves := GetScoreboardPitcherStats(homePitcherStats)
+		homePitcher = ScoreboardPitcher{
+			Name:   *homePitcherName,
+			Hand:   *homePitchHand,
+			ERA:    homePitcherERA,
+			Wins:   homePitcherWins,
+			Losses: homePitcherLosses,
+			Saves:  homePitcherSaves,
+		}
+	} else {
+		homePitcher = ScoreboardPitcher{
+			Name: "TBD",
+		}
+	}
+
+	if teams["away"].ProbablePitcher != nil {
+		awayPitcherId := teams["away"].ProbablePitcher.Id
+		awayPitcherName := teams["away"].ProbablePitcher.FullName
+		awayPitchHand := teams["away"].ProbablePitcher.PitchHand.Code
+
+		awayPitcherStats, err := client.GetMLBPLayerStats(ctx, *awayPitcherId)
+		if err != nil {
+			println("Error getting away pitcher stats: ", err.Error())
+		}
+
+		awayPitcherERA, awayPitcherWins, awayPitcherLosses, awayPitcherSaves := GetScoreboardPitcherStats(awayPitcherStats)
+
+		awayPitcher = ScoreboardPitcher{
+			Name:   *awayPitcherName,
+			Hand:   *awayPitchHand,
+			ERA:    awayPitcherERA,
+			Wins:   awayPitcherWins,
+			Losses: awayPitcherLosses,
+			Saves:  awayPitcherSaves,
+		}
+	} else {
+		awayPitcher = ScoreboardPitcher{
+			Name: "TBD",
+		}
+	}
+
+	venue := *nextGame.Venue.Name
 	gameTime := *nextGame.GameDate
 
 	gameType := info.GameTypeMap[*nextGame.GameType]
@@ -159,22 +208,28 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 	if game.LiveData.Linescore.CurrentInning != nil {
 		finalInning = int(*game.LiveData.Linescore.CurrentInning)
 	}
+
+	winner := findPitcherDecision(game, PitchingDecisionWin)
+	loser := findPitcherDecision(game, PitchingDecisionLoss)
+	save := findPitcherDecision(game, PitchingDecisionSave)
+
 	displayInfo := ScoreboardLastMatchup{
-		FinalInning: finalInning,
-		Venue:       *lastGame.Venue.Name,
 		AwayTeam: ScoreboardLastMatchupTeam{
-			Team:     awayTeam,
-			Winner:   !homeTeamWinner,
-			Decision: findPitcherDecision(game, !homeTeamWinner),
+			Team:   awayTeam,
+			Winner: !homeTeamWinner,
 		},
 		HomeTeam: ScoreboardLastMatchupTeam{
-			Team:     homeTeam,
-			Winner:   homeTeamWinner,
-			Decision: findPitcherDecision(game, homeTeamWinner),
+			Team:   homeTeam,
+			Winner: homeTeamWinner,
 		},
-		DateTime:   *lastGame.GameDate,
-		GameType:   gameType,
-		GameStatus: status,
+		DateTime:       *lastGame.GameDate,
+		GameStatus:     status,
+		Venue:          *lastGame.Venue.Name,
+		GameType:       gameType,
+		FinalInning:    finalInning,
+		WinningPitcher: winner,
+		LosingPitcher:  loser,
+		SavePitcher:    save,
 	}
 	fmt.Printf("displayinfo %+v\n", displayInfo)
 
@@ -206,6 +261,8 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 		}
 	}
 
+	var currentBatterId, currentPitcherId int32
+
 	for *liveGame.GameData.Status.AbstractGameCode == "L" {
 		gameInfo, err := getLiveGameInfo(liveGame)
 		if err != nil {
@@ -214,7 +271,33 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 
 		gameInfo.GameType = gameType
 
+		if currentBatterId != gameInfo.CurrentBatterId || currentPitcherId != gameInfo.CurrentPitcherId {
+			if gameInfo.CurrentBatterId != 0 && gameInfo.CurrentPitcherId != 0 {
+				// Make the api calls
+				currentPitcherId = gameInfo.CurrentPitcherId
+
+				batterStats, err := m.GetMLBPLayerStats(ctx, gameInfo.CurrentBatterId)
+				if err != nil {
+					println("Error getting batter stats: ", err.Error())
+				}
+				currentBatterId = gameInfo.CurrentBatterId
+				batter := getScoreboardLiveGameBatter(batterStats, liveGame, gameInfo)
+
+				fmt.Printf("Batter stats: %+v\n", batter)
+				gameInfo.CurrentBatter = batter
+
+				pitcherStats, err := m.GetMLBPLayerStats(ctx, gameInfo.CurrentPitcherId)
+				if err != nil {
+					println("Error getting pitcher stats: ", err.Error())
+				}
+				pitcher := getScoreboardLiveGamePitcher(pitcherStats, liveGame)
+				fmt.Printf("Pitcher stats: %+v\n", pitcher)
+				gameInfo.CurrentPitcher = pitcher
+			}
+		}
+
 		DisplayLoop(1*time.Second, callInterval, controller)
+
 		latestInfo, err := m.GetLiveGame(ctx, *game.GamePk)
 		if err != nil {
 			println("Error getting live game data: ", err.Error())
@@ -244,6 +327,25 @@ func LiveLookInDisplay(ctx context.Context, info ScoreboardInformation, m *stats
 		if err != nil {
 			println("Error getting live game info: ", err.Error())
 			continue
+		}
+
+		if gameInfo.CurrentBatterId != 0 && gameInfo.CurrentPitcherId != 0 {
+			batterStats, err := m.GetMLBPLayerStats(ctx, gameInfo.CurrentBatterId)
+			if err != nil {
+				println("Error getting batter stats: ", err.Error())
+			}
+			batter := getScoreboardLiveGameBatter(batterStats, liveGame, gameInfo)
+
+			fmt.Printf("Batter stats: %+v\n", batter)
+			gameInfo.CurrentBatter = batter
+
+			pitcherStats, err := m.GetMLBPLayerStats(ctx, gameInfo.CurrentPitcherId)
+			if err != nil {
+				println("Error getting pitcher stats: ", err.Error())
+			}
+			pitcher := getScoreboardLiveGamePitcher(pitcherStats, liveGame)
+			fmt.Printf("Pitcher stats: %+v\n", pitcher)
+			gameInfo.CurrentPitcher = pitcher
 		}
 
 		fmt.Printf("Live look-in for game ID %d: %+v\n", gameId, gameInfo)
