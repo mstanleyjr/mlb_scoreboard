@@ -18,6 +18,23 @@ var (
 	matrix *rgbmatrix.RGBLedMatrix
 )
 
+// Global display state for LED matrix
+var (
+	currentDisplayType DisplayType
+	currentDisplayData interface{}
+	displayMutex       sync.RWMutex
+)
+
+type DisplayType int
+
+const (
+	DisplayTypeLoading DisplayType = iota
+	DisplayTypeDivisionStandings
+	DisplayTypeLiveGame
+	DisplayTypeNextMatchup
+	DisplayTypeLastMatchup
+)
+
 func main() {
 	fmt.Println("HERE WE GOOOOO")
 

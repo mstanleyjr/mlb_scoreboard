@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/mstanleyjr/mlb_scoreboard/third-party/oapi/statsapi"
@@ -11,6 +12,12 @@ import (
 
 func LoadingScreen() {
 	println("Loading scoreboard data...")
+
+	// Set display state for LED matrix
+	displayMutex.Lock()
+	currentDisplayType = DisplayTypeLoading
+	currentDisplayData = nil
+	displayMutex.Unlock()
 }
 
 func DivisionStandingsDisplay(info ScoreboardInformation, leagueID int32, divisionIndex int, controller *DisplayController) {
@@ -90,6 +97,12 @@ func DivisionStandingsDisplay(info ScoreboardInformation, leagueID int32, divisi
 	}
 
 	fmt.Printf("displayinfo %+v\n", displayInfo)
+
+	// Set display state for LED matrix
+	displayMutex.Lock()
+	currentDisplayType = DisplayTypeDivisionStandings
+	currentDisplayData = displayInfo
+	displayMutex.Unlock()
 
 	DisplayLoop(1*time.Second, time.Second*8, controller)
 	fmt.Println("Finished displaying division standings.")
@@ -303,6 +316,12 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 		}
 
 		gameInfo.GameType = gameType
+
+		// Set display state for LED matrix
+		displayMutex.Lock()
+		currentDisplayType = DisplayTypeLiveGame
+		currentDisplayData = gameInfo
+		displayMutex.Unlock()
 
 		if currentBatterId != gameInfo.CurrentBatterId || currentPitcherId != gameInfo.CurrentPitcherId {
 			if gameInfo.CurrentBatterId != 0 && gameInfo.CurrentPitcherId != 0 {
