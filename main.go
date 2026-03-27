@@ -18,22 +18,22 @@ var (
 	matrix *rgbmatrix.RGBLedMatrix
 )
 
-// Global display state for LED matrix
-var (
-	currentDisplayType DisplayType
-	currentDisplayData interface{}
-	displayMutex       sync.RWMutex
-)
+// Global display state for LED matrix - now defined in scoreboard package
+// var (
+// 	currentDisplayType DisplayType
+// 	currentDisplayData interface{}
+// 	displayMutex       sync.RWMutex
+// )
 
-type DisplayType int
+// type DisplayType int
 
-const (
-	DisplayTypeLoading DisplayType = iota
-	DisplayTypeDivisionStandings
-	DisplayTypeLiveGame
-	DisplayTypeNextMatchup
-	DisplayTypeLastMatchup
-)
+// const (
+// 	DisplayTypeLoading DisplayType = iota
+// 	DisplayTypeDivisionStandings
+// 	DisplayTypeLiveGame
+// 	DisplayTypeNextMatchup
+// 	DisplayTypeLastMatchup
+// )
 
 func main() {
 	fmt.Println("HERE WE GOOOOO")
@@ -98,23 +98,23 @@ func main() {
 			draw.Draw(canvas, canvas.Bounds(), &image.Uniform{color.RGBA{R: 0, G: 0, B: 0, A: 255}}, image.ZP, draw.Src)
 
 			// Draw current display content
-			displayMutex.RLock()
-			switch currentDisplayType {
-			case DisplayTypeLoading:
+			scoreboard.DisplayMutex.RLock()
+			switch scoreboard.CurrentDisplayType {
+			case scoreboard.DisplayTypeLoading:
 				DrawLoadingScreen(canvas)
-			case DisplayTypeDivisionStandings:
-				if division, ok := currentDisplayData.(scoreboard.ScoreboardDivision); ok {
+			case scoreboard.DisplayTypeDivisionStandings:
+				if division, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardDivision); ok {
 					scoreboard.DrawDivisionStandings(canvas, division)
 				}
-			case DisplayTypeLiveGame:
-				if game, ok := currentDisplayData.(scoreboard.ScoreboardLiveGame); ok {
+			case scoreboard.DisplayTypeLiveGame:
+				if game, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardLiveGame); ok {
 					scoreboard.DrawLiveGameScore(canvas, game)
 				}
 			default:
 				// Draw test pattern as fallback
 				DrawTestPattern(canvas)
 			}
-			displayMutex.RUnlock()
+			scoreboard.DisplayMutex.RUnlock()
 
 			// Render to LED matrix
 			err := canvas.Render()

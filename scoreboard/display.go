@@ -10,14 +10,31 @@ import (
 	"github.com/mstanleyjr/mlb_scoreboard/third-party/oapi/statsapi"
 )
 
+// Global display state for LED matrix
+var (
+	CurrentDisplayType DisplayType
+	CurrentDisplayData interface{}
+	DisplayMutex       sync.RWMutex
+)
+
+type DisplayType int
+
+const (
+	DisplayTypeLoading DisplayType = iota
+	DisplayTypeDivisionStandings
+	DisplayTypeLiveGame
+	DisplayTypeNextMatchup
+	DisplayTypeLastMatchup
+)
+
 func LoadingScreen() {
 	println("Loading scoreboard data...")
 
 	// Set display state for LED matrix
-	displayMutex.Lock()
-	currentDisplayType = DisplayTypeLoading
-	currentDisplayData = nil
-	displayMutex.Unlock()
+	DisplayMutex.Lock()
+	CurrentDisplayType = DisplayTypeLoading
+	CurrentDisplayData = nil
+	DisplayMutex.Unlock()
 }
 
 func DivisionStandingsDisplay(info ScoreboardInformation, leagueID int32, divisionIndex int, controller *DisplayController) {
@@ -99,10 +116,10 @@ func DivisionStandingsDisplay(info ScoreboardInformation, leagueID int32, divisi
 	fmt.Printf("displayinfo %+v\n", displayInfo)
 
 	// Set display state for LED matrix
-	displayMutex.Lock()
-	currentDisplayType = DisplayTypeDivisionStandings
-	currentDisplayData = displayInfo
-	displayMutex.Unlock()
+	DisplayMutex.Lock()
+	CurrentDisplayType = DisplayTypeDivisionStandings
+	CurrentDisplayData = displayInfo
+	DisplayMutex.Unlock()
 
 	DisplayLoop(1*time.Second, time.Second*8, controller)
 	fmt.Println("Finished displaying division standings.")
@@ -318,10 +335,10 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 		gameInfo.GameType = gameType
 
 		// Set display state for LED matrix
-		displayMutex.Lock()
-		currentDisplayType = DisplayTypeLiveGame
-		currentDisplayData = gameInfo
-		displayMutex.Unlock()
+		DisplayMutex.Lock()
+		CurrentDisplayType = DisplayTypeLiveGame
+		CurrentDisplayData = gameInfo
+		DisplayMutex.Unlock()
 
 		if currentBatterId != gameInfo.CurrentBatterId || currentPitcherId != gameInfo.CurrentPitcherId {
 			if gameInfo.CurrentBatterId != 0 && gameInfo.CurrentPitcherId != 0 {
