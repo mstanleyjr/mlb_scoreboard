@@ -163,7 +163,16 @@ func BuildGameTypeLookup(gametypes []statsapi.GameTypeEnum) map[string]string {
 }
 
 func IsDataLoaded(info ScoreboardInformation) bool {
-	return info.AmericanLeagueStandings != nil || info.NationalLeagueStandings != nil || info.TeamSchedule != nil
+	// Check if basic data is loaded
+	hasBasicData := info.AmericanLeagueStandings != nil || info.NationalLeagueStandings != nil || info.TeamSchedule != nil
+
+	// Check if league/divisions data is loaded
+	hasLeagueData := len(info.LeagueMap) > 0
+
+	// Check if game types are loaded
+	hasGameTypeData := len(info.GameTypeMap) > 0
+
+	return hasBasicData && hasLeagueData && hasGameTypeData
 }
 
 func FindActiveTeamGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemRestObject, error) {
