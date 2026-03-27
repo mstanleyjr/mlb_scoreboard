@@ -15,21 +15,54 @@ func LoadingScreen() {
 
 func DivisionStandingsDisplay(info ScoreboardInformation, leagueID int32, divisionIndex int, controller *DisplayController) {
 	leagueMap := info.LeagueMap
-	fmt.Println("Displaying standings for League: ", *leagueMap[leagueID].League.Name, " ; Division : ", *leagueMap[leagueID].Divisions[divisionIndex].Name)
 
-	divisionID := leagueMap[leagueID].Divisions[divisionIndex].Id
+	// Safety check: ensure league exists
+	league, exists := leagueMap[leagueID]
+	if !exists {
+		fmt.Println("League not found:", leagueID)
+		return
+	}
+
+	// Safety check: ensure league has name
+	if league.League.Name == nil {
+		fmt.Println("League name is nil")
+		return
+	}
+
+	// Safety check: ensure divisions exist and divisionIndex is valid
+	if league.Divisions == nil || divisionIndex >= len(league.Divisions) {
+		fmt.Println("Divisions not loaded or invalid divisionIndex:", divisionIndex)
+		return
+	}
+
+	division := league.Divisions[divisionIndex]
+	if division.Name == nil || division.Id == nil {
+		fmt.Println("Division data incomplete")
+		return
+	}
+
+	fmt.Println("Displaying standings for League: ", *league.League.Name, " ; Division : ", *division.Name)
+
+	divisionID := division.Id
 	leagueStandingsByDivision := info.Standings[leagueID].Records
+
+	// Safety check: ensure standings data exists
+	if leagueStandingsByDivision == nil {
+		fmt.Println("Standings data not loaded for league:", leagueID)
+		return
+	}
+
 	var standings *[]statsapi.TeamStandingsRecordRestObject
 	for _, divisionRecords := range *leagueStandingsByDivision {
 		foundId := divisionRecords.Division.Id
-		if *foundId == *divisionID {
+		if foundId != nil && *foundId == *divisionID {
 			standings = divisionRecords.TeamRecords
 			break
 		}
 	}
 
 	if standings == nil {
-		println("No standings for division: ", divisionID)
+		fmt.Println("No standings for division: ", *divisionID)
 		return
 	}
 
@@ -52,7 +85,7 @@ func DivisionStandingsDisplay(info ScoreboardInformation, leagueID int32, divisi
 	}
 
 	displayInfo := ScoreboardDivision{
-		LeagueName: *leagueMap[leagueID].Divisions[divisionIndex].NameShort,
+		LeagueName: *division.NameShort,
 		Teams:      divisionTeams,
 	}
 
