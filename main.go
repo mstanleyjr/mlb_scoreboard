@@ -5,20 +5,19 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"sync"
 	"time"
 
 	rgbmatrix "github.com/mcuadros/go-rpi-rgb-led-matrix"
-	"github.com/mstanleyjr/mlb_scoreboard/scoreboard"
 )
 
 func main() {
 	//ctx, _ := context.WithCancel(context.Background())
 
-	controller := &scoreboard.DisplayController{}
-	controller.Cond = sync.NewCond(&controller.Mu)
-	controller.Paused = false
+	//controller := &scoreboard.DisplayController{}
+	//controller.Cond = sync.NewCond(&controller.Mu)
+	//controller.Paused = false
 
+	fmt.Println("HERE WE GOOOOO")
 	//var wg sync.WaitGroup
 	////wg.Add(1)
 	////go scoreboard.StartScoreboard(ctx, &wg, controller)
