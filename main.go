@@ -1,22 +1,24 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
+	"sync"
 	"time"
 
+	"github.com/mstanleyjr/mlb_scoreboard/scoreboard"
 	rgbmatrix "github.com/tfk1410/go-rpi-rgb-led-matrix"
 )
 
+var (
+	canvas *rgbmatrix.Canvas
+	matrix *rgbmatrix.RGBLedMatrix
+)
+
 func main() {
-	//ctx, _ := context.WithCancel(context.Background())
-
-	//controller := &scoreboard.DisplayController{}
-	//controller.Cond = sync.NewCond(&controller.Mu)
-	//controller.Paused = false
-
 	fmt.Println("HERE WE GOOOOO")
 
 	// Create RGB LED matrix config with hardware pulse disabled
@@ -30,7 +32,8 @@ func main() {
 		config.Rows, config.Cols, config.HardwareMapping, config.DisableHardwarePulsing)
 
 	// Create RGB LED matrix
-	m, err := rgbmatrix.NewRGBLedMatrix(config)
+	var err error
+	matrix, err := rgbmatrix.NewRGBLedMatrix(config)
 	if err != nil {
 		fmt.Printf("Error creating matrix: %v\n", err)
 		return
@@ -38,61 +41,91 @@ func main() {
 	fmt.Println("Matrix created successfully")
 
 	// Create canvas
-	c := rgbmatrix.NewCanvas(m)
+	canvas = rgbmatrix.NewCanvas(matrix)
 	defer func() {
-		err := c.Close()
+		err := canvas.Close()
 		if err != nil {
 			fmt.Println("Error closing canvas:", err)
 		}
 	}()
 
-	fmt.Println("Canvas created, rendering colors...")
+	fmt.Println("Canvas created, starting scoreboard...")
 
-	// Test 1: Red
-	fmt.Println("Drawing RED...")
-	draw.Draw(c, c.Bounds(), &image.Uniform{color.RGBA{R: 255, G: 0, B: 0, A: 255}}, image.ZP, draw.Src)
-	err = c.Render()
-	if err != nil {
-		fmt.Println("Error rendering RED:", err)
-		return
+	// Set up context and wait group for goroutines
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var wg sync.WaitGroup
+
+	// Create display controller
+	controller := &scoreboard.DisplayController{}
+	controller.Cond = sync.NewCond(&controller.Mu)
+	controller.Paused = false
+
+	// Start scoreboard in background
+	wg.Add(1)
+	go scoreboard.StartScoreboard(ctx, &wg, controller)
+
+	// Render loop - continuously update the display
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			// Clear canvas (black background)
+			draw.Draw(canvas, canvas.Bounds(), &image.Uniform{color.RGBA{R: 0, G: 0, B: 0, A: 255}}, image.ZP, draw.Src)
+
+			// TODO: Draw scoreboard content here
+			// For now, draw a test pattern
+			DrawTestPattern(canvas)
+
+			// Render to LED matrix
+			err := canvas.Render()
+			if err != nil {
+				fmt.Println("Error rendering to matrix:", err)
+				return
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
+	// Wait for all goroutines to complete or context cancellation
+	wg.Wait()
+
+	fmt.Println("Scoreboard shutdown complete")
+}
+
+// DrawTestPattern draws a simple test pattern to verify the display is working
+func DrawTestPattern(c *rgbmatrix.Canvas) {
+	// Draw a red border
+	for x := 0; x < 64; x++ {
+		c.Set(x, 0, color.RGBA{R: 255, G: 0, B: 0, A: 255})
+		c.Set(x, 63, color.RGBA{R: 255, G: 0, B: 0, A: 255})
 	}
-	time.Sleep(5 * time.Second)
-
-	// Test 2: Green
-	fmt.Println("Drawing GREEN...")
-	draw.Draw(c, c.Bounds(), &image.Uniform{color.RGBA{R: 0, G: 255, B: 0, A: 255}}, image.ZP, draw.Src)
-	err = c.Render()
-	if err != nil {
-		fmt.Println("Error rendering GREEN:", err)
-		return
-	}
-	time.Sleep(5 * time.Second)
-
-	// Test 3: Blue
-	fmt.Println("Drawing BLUE...")
-	draw.Draw(c, c.Bounds(), &image.Uniform{color.RGBA{R: 0, G: 0, B: 255, A: 255}}, image.ZP, draw.Src)
-	err = c.Render()
-	if err != nil {
-		fmt.Println("Error rendering BLUE:", err)
-		return
-	}
-	time.Sleep(5 * time.Second)
-
-	// Clear
-	fmt.Println("Clearing...")
-	draw.Draw(c, c.Bounds(), &image.Uniform{color.RGBA{R: 0, G: 0, B: 0, A: 255}}, image.ZP, draw.Src)
-	err = c.Render()
-	if err != nil {
-		fmt.Println("Error rendering BLACK:", err)
-		return
+	for y := 0; y < 64; y++ {
+		c.Set(0, y, color.RGBA{R: 255, G: 0, B: 0, A: 255})
+		c.Set(63, y, color.RGBA{R: 255, G: 0, B: 0, A: 255})
 	}
 
-	fmt.Println("Test complete")
+	// Draw a green square in the center
+	for x := 20; x < 44; x++ {
+		for y := 20; y < 44; y++ {
+			c.Set(x, y, color.RGBA{R: 0, G: 255, B: 0, A: 255})
+		}
+	}
 
-	//
-	// make a config object
-	// make a client
-	// Should I bother with tests here?
-	// Future me might like it and they won't be that expensive to mock
-	// then if I put this up for future stuff it won't be a tragedy.
+	// Draw a blue dot in the very center
+	c.Set(32, 32, color.RGBA{R: 0, G: 0, B: 255, A: 255})
+}
+
+// DrawText would be a helper to draw text to the canvas
+func DrawText(c *rgbmatrix.Canvas, x, y int, text string, col color.RGBA) {
+	// TODO: Implement text rendering
+	// This would require a font library or bitmap fonts
 }
