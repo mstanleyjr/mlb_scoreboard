@@ -193,7 +193,7 @@ func DrawLoadingScreen(c *rgbmatrix.Canvas) {
 	startX := (width - textWidth) / 2
 	startY := height / 2
 
-	for i, char := range loadingText {
+	for i, _ := range loadingText {
 		x := startX + (i * 4)
 		y := startY
 
