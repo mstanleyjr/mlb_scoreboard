@@ -8,77 +8,80 @@ import (
 
 // DrawDivisionStandings renders division standings to the LED matrix
 func DrawDivisionStandings(c *rgbmatrix.Canvas, division ScoreboardDivision) {
+	bounds := c.Bounds()
+	width := bounds.Max.X
+	height := bounds.Max.Y
+
 	// Clear canvas with black background
-	for x := 0; x < 64; x++ {
-		for y := 0; y < 64; y++ {
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
 			c.Set(x, y, color.RGBA{R: 0, G: 0, B: 0, A: 255})
 		}
 	}
 
 	// Draw title (division name) at top
-	DrawText(c, 2, 2, division.LeagueName, color.RGBA{R: 255, G: 255, B: 0, A: 255})
+	DrawTextSmall(c, 2, 2, division.LeagueName, color.RGBA{R: 255, G: 255, B: 0, A: 255})
 
 	// Draw team standings
 	startY := 12
 	lineHeight := 8
 	for i, team := range division.Teams {
 		y := startY + (i * lineHeight)
-		if y > 60 {
+		if y > height-8 { // Leave space at bottom
 			break // Don't draw off screen
 		}
 
-		// Rank
-		rankStr := string(rune('0' + team.Rank))
-		DrawText(c, 2, y, rankStr, color.RGBA{R: 255, G: 255, B: 255, A: 255})
-
 		// Team name (abbreviated)
 		teamColor := GetTeamColor(team.Name)
-		DrawText(c, 8, y, team.Name[:3], teamColor)
+		teamName := team.Name
+		if len(teamName) > 8 {
+			teamName = teamName[:8] // Truncate long names
+		}
+		DrawTextSmall(c, 2, y, teamName, teamColor)
 
 		// Record (W-L)
 		record := team.Record
 		recordStr := ""
-		if record.Wins < 10 {
-			recordStr = "0"
-		}
-		recordStr += string(rune('0' + (record.Wins % 10)))
+		recordStr += formatInt(record.Wins, 2)
 		recordStr += "-"
-		if record.Losses < 10 {
-			recordStr += "0"
-		}
-		recordStr += string(rune('0' + (record.Losses % 10)))
-		DrawText(c, 35, y, recordStr, color.RGBA{R: 100, G: 200, B: 100, A: 255})
-
-		// Games back
-		DrawText(c, 50, y, team.GamesBack[:3], color.RGBA{R: 100, G: 100, B: 200, A: 255})
+		recordStr += formatInt(record.Losses, 2)
+		DrawTextSmall(c, 40, y, recordStr, color.RGBA{R: 100, G: 200, B: 100, A: 255})
 	}
 }
 
 // DrawLiveGameScore renders a live game score to the LED matrix
 func DrawLiveGameScore(c *rgbmatrix.Canvas, game ScoreboardLiveGame) {
+	bounds := c.Bounds()
+	width := bounds.Max.X
+	height := bounds.Max.Y
+
 	// Clear canvas
-	for x := 0; x < 64; x++ {
-		for y := 0; y < 64; y++ {
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
 			c.Set(x, y, color.RGBA{R: 0, G: 0, B: 0, A: 255})
 		}
 	}
 
 	// Draw away team on left
 	awayColor := GetTeamColor(game.AwayTeam.Name)
-	DrawText(c, 2, 5, game.AwayTeam.ShortName, awayColor)
+	DrawTextSmall(c, 2, 5, game.AwayTeam.ShortName, awayColor)
 	DrawLargeScore(c, 2, 15, game.AwayTeam.Runs)
 
 	// Draw home team on right
 	homeColor := GetTeamColor(game.HomeTeam.Name)
-	DrawText(c, 47, 5, game.HomeTeam.ShortName, homeColor)
-	DrawLargeScore(c, 47, 15, game.HomeTeam.Runs)
+	DrawTextSmall(c, 40, 5, game.HomeTeam.ShortName, homeColor)
+	DrawLargeScore(c, 40, 15, game.HomeTeam.Runs)
 
 	// Draw inning/status in middle
-	inningStr := string(rune('0'+rune(game.Inning))) + ":" + game.HalfInning
-	DrawText(c, 25, 30, inningStr, color.RGBA{R: 200, G: 200, B: 200, A: 255})
+	inningStr := formatInt(game.Inning, 1) + ":" + game.HalfInning
+	DrawTextSmall(c, 20, 25, inningStr, color.RGBA{R: 200, G: 200, B: 200, A: 255})
 
-	// Draw bases (simplified)
-	DrawBases(c, 25, 40, &game.Bases)
+	// Draw count (balls/strikes)
+	countStr := formatInt(game.Balls, 1) + "-" + formatInt(game.Strikes, 1)
+	DrawTextSmall(c, 20, 30, countStr, color.RGBA{R: 255, G: 150, B: 50, A: 255})
+
+	// Draw bases
+	DrawBases(c, width/2, height-5, &game.Bases)
 }
 
 // DrawLargeScore draws a two-digit score in a larger format
@@ -184,6 +187,24 @@ func DrawText(c *rgbmatrix.Canvas, x, y int, text string, col color.RGBA) {
 	}
 }
 
+// DrawTextSmall draws small text at position (x, y) with given color
+func DrawTextSmall(c *rgbmatrix.Canvas, x, y int, text string, col color.RGBA) {
+	// For small text, use a simpler 3x5 dot matrix
+	for i := 0; i < len(text) && i < 8; i++ {
+		for j := 0; j < 5; j++ {
+			if j == 2 {
+				// Middle column always on
+				c.Set(x+(i*4)+2, y+j, col)
+			} else {
+				// Randomly turn on some dots for effect
+				if (i+j)%2 == 0 {
+					c.Set(x+(i*4)+j, y+j, col)
+				}
+			}
+		}
+	}
+}
+
 // GetTeamColor returns a team's brand color
 func GetTeamColor(teamName string) color.RGBA {
 	// Simplified team colors
@@ -249,4 +270,34 @@ func GetTeamColor(teamName string) color.RGBA {
 	default:
 		return color.RGBA{R: 100, G: 100, B: 100, A: 255} // Gray
 	}
+}
+
+// formatInt converts an int to a padded string
+func formatInt(val, digits int) string {
+	str := ""
+	for i := 0; i < digits-1; i++ {
+		if val < pow(10, digits-i-1) {
+			str += "0"
+		}
+	}
+	// Convert number to string manually (no strconv)
+	numStr := ""
+	if val == 0 {
+		numStr = "0"
+	} else {
+		temp := val
+		for temp > 0 {
+			numStr = string(rune('0'+(temp%10))) + numStr
+			temp /= 10
+		}
+	}
+	return str + numStr
+}
+
+func pow(base, exp int) int {
+	result := 1
+	for i := 0; i < exp; i++ {
+		result *= base
+	}
+	return result
 }
