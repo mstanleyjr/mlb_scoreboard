@@ -19,8 +19,12 @@ func main() {
 
 	fmt.Println("HERE WE GOOOOO")
 
+	// Create RGB LED matrix config with hardware pulse disabled
+	config := &rgbmatrix.DefaultConfig
+	config.DisableHardwarePulse = true
+
 	// Create RGB LED matrix
-	m, err := rgbmatrix.NewRGBLedMatrix(&rgbmatrix.DefaultConfig)
+	m, err := rgbmatrix.NewRGBLedMatrix(config)
 	if err != nil {
 		fmt.Printf("Error creating matrix: %v\n", err)
 		return
