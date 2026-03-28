@@ -41,12 +41,12 @@ func main() {
 	// Create RGB LED matrix config
 	config := &rgbmatrix.DefaultConfig
 	config.DisableHardwarePulsing = true // Required until solder jumper is done
-	config.Rows = 32
+	config.Rows = 64
 	config.Cols = 64
 	config.HardwareMapping = "adafruit-hat"
 	config.Brightness = 100
 	config.GPIOSlowdown = 3   // Pi 4B
-	config.RowAddressType = 0 // 0=default for 32-row, change to 1 when using 64-row
+	config.RowAddressType = 1 // 1=AB-addressed for 64-row panels
 
 	fmt.Printf("Config: Rows=%d, Cols=%d, Mapping=%s, DisableHardwarePulsing=%v\n",
 		config.Rows, config.Cols, config.HardwareMapping, config.DisableHardwarePulsing)
