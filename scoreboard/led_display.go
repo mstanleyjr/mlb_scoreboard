@@ -67,34 +67,37 @@ func DrawDivisionStandings(c *rgbmatrix.Canvas, division ScoreboardDivision) {
 		}
 	}
 
-	// Draw title (division name) at top
-	DrawTextSmall(c, 1, 0, division.LeagueName, color.RGBA{R: 255, G: 255, B: 0, A: 255})
+	// For 64x64: draw title at top with more space
+	// Font is 7 pixels tall, so we have room for ~9 rows of text
+	DrawTextSmall(c, 2, 1, division.LeagueName, color.RGBA{R: 255, G: 255, B: 0, A: 255})
 
-	// Draw team standings - fit multiple rows on 32-height display
-	// Font is 7 tall, so use 8 pixel line spacing
-	startY := 8
-	lineHeight := 8
+	// Draw team standings
+	// Use 9 pixel line spacing (7px font + 2px gap) to fit multiple teams
+	startY := 10
+	lineHeight := 9
+
 	for i, team := range division.Teams {
 		y := startY + (i * lineHeight)
-		if y+7 > height { // Check if bottom of text fits
-			break // Don't draw off screen
+
+		// Stop before going off bottom
+		if y+7 >= height {
+			break
 		}
 
-		// Team name (abbreviated)
+		// Team name on left
 		teamColor := GetTeamColor(team.Name)
 		teamName := team.Name
-		if len(teamName) > 6 {
-			teamName = teamName[:6] // Truncate to 6 chars max
+		if len(teamName) > 10 {
+			teamName = teamName[:10]
 		}
-		DrawTextSmall(c, 1, y, teamName, teamColor)
+		DrawTextSmall(c, 2, y, teamName, teamColor)
 
-		// Record (W-L) - right side
+		// Record (W-L) on right side
 		record := team.Record
-		recordStr := ""
-		recordStr += formatInt(record.Wins, 2)
-		recordStr += "-"
-		recordStr += formatInt(record.Losses, 2)
-		DrawTextSmall(c, 38, y, recordStr, color.RGBA{R: 100, G: 200, B: 100, A: 255})
+		recordStr := formatInt(record.Wins, 2) + "-" + formatInt(record.Losses, 2)
+		// Calculate X position to right-align (roughly)
+		recordX := width - 18
+		DrawTextSmall(c, recordX, y, recordStr, color.RGBA{R: 100, G: 200, B: 100, A: 255})
 	}
 }
 
@@ -113,24 +116,24 @@ func DrawLiveGameScore(c *rgbmatrix.Canvas, game ScoreboardLiveGame) {
 
 	// Draw away team on left
 	awayColor := GetTeamColor(game.AwayTeam.Name)
-	DrawTextSmall(c, 2, 5, game.AwayTeam.ShortName, awayColor)
-	DrawLargeScore(c, 2, 15, game.AwayTeam.Runs)
+	DrawTextSmall(c, 2, 2, game.AwayTeam.ShortName, awayColor)
+	DrawLargeScore(c, 2, 10, game.AwayTeam.Runs)
 
 	// Draw home team on right
 	homeColor := GetTeamColor(game.HomeTeam.Name)
-	DrawTextSmall(c, 40, 5, game.HomeTeam.ShortName, homeColor)
-	DrawLargeScore(c, 40, 15, game.HomeTeam.Runs)
+	DrawTextSmall(c, width-18, 2, game.HomeTeam.ShortName, homeColor)
+	DrawLargeScore(c, width-18, 10, game.HomeTeam.Runs)
 
 	// Draw inning/status in middle
 	inningStr := formatInt(game.Inning, 1) + ":" + game.HalfInning
-	DrawTextSmall(c, 20, 25, inningStr, color.RGBA{R: 200, G: 200, B: 200, A: 255})
+	DrawTextSmall(c, 24, 22, inningStr, color.RGBA{R: 200, G: 200, B: 200, A: 255})
 
 	// Draw count (balls/strikes)
 	countStr := formatInt(game.Balls, 1) + "-" + formatInt(game.Strikes, 1)
-	DrawTextSmall(c, 20, 30, countStr, color.RGBA{R: 255, G: 150, B: 50, A: 255})
+	DrawTextSmall(c, 24, 30, countStr, color.RGBA{R: 255, G: 150, B: 50, A: 255})
 
 	// Draw bases
-	DrawBases(c, width/2, height-5, &game.Bases)
+	DrawBases(c, width/2, height-8, &game.Bases)
 }
 
 // DrawLargeScore draws a two-digit score in a larger format
