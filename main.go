@@ -46,7 +46,7 @@ func main() {
 	config.HardwareMapping = "adafruit-hat"
 	config.Brightness = 100
 	config.GPIOSlowdown = 3   // Pi 4B
-	config.RowAddressType = 1 // 1=AB-addressed for 64-row panels
+	config.RowAddressType = 0 // Let command line handle it
 
 	fmt.Printf("Config: Rows=%d, Cols=%d, Mapping=%s, DisableHardwarePulsing=%v\n",
 		config.Rows, config.Cols, config.HardwareMapping, config.DisableHardwarePulsing)
