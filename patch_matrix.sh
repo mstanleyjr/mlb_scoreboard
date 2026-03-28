@@ -8,9 +8,13 @@ echo "Making library writable..."
 sudo chmod -R u+w ~/go/pkg/mod/github.com/tfk1410/go-rpi-rgb-led-matrix@v0.0.0-20210404121211-ed43f29cbccb/
 
 echo "Patching $LIB..."
+echo "File exists check:"
+ls -la $LIB
 
-# 1. Add C helper functions for gpio_slowdown and row_address_type into the CGO preamble
-# Insert before the closing */ of the C preamble
+echo ""
+echo "Current content around InverseColors:"
+grep -n "inverse_colors\|InverseColors\|GPIOSlowdown\|gpio_slowdown" $LIB
+
 python3 - <<'PYEOF'
 import re
 
