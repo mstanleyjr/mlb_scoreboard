@@ -1,6 +1,7 @@
 package scoreboard
 
 import (
+	"fmt"
 	"image/color"
 
 	rgbmatrix "github.com/tfk1410/go-rpi-rgb-led-matrix"
@@ -67,6 +68,7 @@ func DrawDivisionStandings(c *rgbmatrix.Canvas, division ScoreboardDivision) {
 		}
 	}
 
+	fmt.Print("Drawing division standings for ", division.LeagueName)
 	// For 64x64: draw title at top
 	DrawTextSmall(c, 2, 1, division.LeagueName, color.RGBA{R: 255, G: 255, B: 0, A: 255})
 

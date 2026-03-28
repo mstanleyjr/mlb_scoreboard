@@ -15,7 +15,6 @@ import (
 
 var (
 	canvas *rgbmatrix.Canvas
-	matrix *rgbmatrix.RGBLedMatrix
 )
 
 // Global display state for LED matrix - now defined in scoreboard package
@@ -45,8 +44,6 @@ func main() {
 	config.Cols = 64
 	config.HardwareMapping = "adafruit-hat"
 	config.Brightness = 100
-	config.GPIOSlowdown = 3   // Pi 4B
-	config.RowAddressType = 0 // Let command line handle it
 
 	fmt.Printf("Config: Rows=%d, Cols=%d, Mapping=%s, DisableHardwarePulsing=%v\n",
 		config.Rows, config.Cols, config.HardwareMapping, config.DisableHardwarePulsing)
@@ -98,7 +95,7 @@ func main() {
 			}
 
 			// Clear canvas (black background)
-			draw.Draw(canvas, canvas.Bounds(), &image.Uniform{color.RGBA{R: 0, G: 0, B: 0, A: 255}}, image.ZP, draw.Src)
+			draw.Draw(canvas, canvas.Bounds(), &image.Uniform{color.RGBA{R: 0, G: 0, B: 0, A: 255}}, image.Point{}, draw.Src)
 
 			// Draw current display content
 			scoreboard.DisplayMutex.RLock()
@@ -168,12 +165,6 @@ func DrawTestPattern(c *rgbmatrix.Canvas) {
 	c.Set(centerX, centerY, color.RGBA{R: 0, G: 0, B: 255, A: 255})
 }
 
-// DrawText would be a helper to draw text to the canvas
-func DrawText(c *rgbmatrix.Canvas, x, y int, text string, col color.RGBA) {
-	// TODO: Implement text rendering
-	// This would require a font library or bitmap fonts
-}
-
 // DrawLoadingScreen draws the loading screen while data is being fetched
 func DrawLoadingScreen(c *rgbmatrix.Canvas) {
 	bounds := c.Bounds()
@@ -196,7 +187,7 @@ func DrawLoadingScreen(c *rgbmatrix.Canvas) {
 	startX := (width - textWidth) / 2
 	startY := height / 2
 
-	for i, _ := range loadingText {
+	for i := range loadingText {
 		x := startX + (i * 4)
 		y := startY
 
