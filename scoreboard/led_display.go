@@ -74,32 +74,32 @@ func DrawDivisionStandings(c *rgbmatrix.Canvas, division ScoreboardDivision) {
 
 	// Draw team standings
 	// Use 9 pixel line spacing (7px font + 2px gap)
-	//startY := 10
-	//lineHeight := 9
-	//
-	//for i, team := range division.Teams {
-	//	y := startY + (i * lineHeight)
-	//
-	//	// Stop before going off bottom
-	//	if y+7 >= height {
-	//		break
-	//	}
-	//
-	//	// Team name on left (max 6 chars to leave room for record)
-	//	teamColor := GetTeamColor(team.Name)
-	//	teamName := team.Name
-	//	if len(teamName) > 6 {
-	//		teamName = teamName[:6]
-	//	}
-	//	DrawTextSmall(c, 2, y, teamName, teamColor)
-	//
-	//	// Record (W-L) right after team name
-	//	record := team.Record
-	//	recordStr := formatInt(record.Wins, 2) + "-" + formatInt(record.Losses, 2)
-	//	// Team name is 6 chars * 6px per char = ~36px, plus some padding
-	//	recordX := 40
-	//	DrawTextSmall(c, recordX, y, recordStr, color.RGBA{R: 100, G: 200, B: 100, A: 255})
-	//}
+	startY := 10
+	lineHeight := 9
+
+	for i, team := range division.Teams {
+		y := startY + (i * lineHeight)
+
+		// Stop before going off bottom
+		if y+7 >= height {
+			break
+		}
+
+		// Team name on left (max 6 chars to leave room for record)
+		teamColor := GetTeamColor(team.Name)
+		teamName := team.Name
+		if len(teamName) > 6 {
+			teamName = teamName[:6]
+		}
+		DrawTextSmall(c, 2, y, teamName, teamColor)
+
+		// Record (W-L) right after team name
+		record := team.Record
+		recordStr := formatInt(record.Wins, 2) + "-" + formatInt(record.Losses, 2)
+		// Team name is 6 chars * 6px per char = ~36px, plus some padding
+		recordX := 40
+		DrawTextSmall(c, recordX, y, recordStr, color.RGBA{R: 100, G: 200, B: 100, A: 255})
+	}
 }
 
 // DrawLiveGameScore renders a live game score to the LED matrix
