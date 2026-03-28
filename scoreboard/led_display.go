@@ -55,25 +55,73 @@ var font5x7 = map[rune][7]byte{
 	')': {0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08},
 }
 
-// DrawDivisionStandings renders division standings to the LED matrix
+// DrawDivisionStandings renders division standings to the LED matrix using TrueType fonts
 func DrawDivisionStandings(c *rgbmatrix.Canvas, division ScoreboardDivision) {
 	bounds := c.Bounds()
-	width := bounds.Max.X
 	height := bounds.Max.Y
 
 	// Clear canvas with black background
-	for x := 0; x < width; x++ {
+	for x := 0; x < bounds.Max.X; x++ {
 		for y := 0; y < height; y++ {
 			c.Set(x, y, color.RGBA{R: 0, G: 0, B: 0, A: 255})
 		}
 	}
 
-	fmt.Print("Drawing division standings for ", division.LeagueName)
-	// For 64x64: draw title at top
+	// Load TrueType font for rendering
+	// On Pi: /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+	// On Mac: /Library/Fonts/Arial.ttf
+	ttf, err := NewTrueTypeFont("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 7)
+	if err != nil {
+		// Fallback to bitmap font if TrueType fails
+		fmt.Printf("TrueType font error: %v, falling back to bitmap font\n", err)
+		drawDivisionStandingsBitmap(c, division)
+		return
+	}
+	defer func() {
+		_ = ttf.Close()
+	}()
+
+	// Draw title (division name) at top
+	_ = ttf.DrawString(c, 2, 1, division.LeagueName, color.RGBA{R: 255, G: 255, B: 0, A: 255})
+
+	// Draw team standings
+	startY := 12
+	lineHeight := 10 // TrueType font spacing
+
+	for i, team := range division.Teams {
+		y := startY + (i * lineHeight)
+
+		// Stop before going off bottom
+		if y+10 >= height {
+			break
+		}
+
+		// Team name on left (max 6 chars)
+		teamColor := GetTeamColor(team.Name)
+		teamName := team.Name
+		if len(teamName) > 6 {
+			teamName = teamName[:6]
+		}
+		_ = ttf.DrawString(c, 2, y, teamName, teamColor)
+
+		// Record (W-L) right after team name
+		record := team.Record
+		recordStr := formatInt(record.Wins, 2) + "-" + formatInt(record.Losses, 2)
+		recordX := 42
+		_ = ttf.DrawString(c, recordX, y, recordStr, color.RGBA{R: 100, G: 200, B: 100, A: 255})
+	}
+}
+
+// drawDivisionStandingsBitmap is the fallback bitmap font version
+func drawDivisionStandingsBitmap(c *rgbmatrix.Canvas, division ScoreboardDivision) {
+	bounds := c.Bounds()
+	height := bounds.Max.Y
+
+	fmt.Print("Drawing division standings (bitmap) for ", division.LeagueName)
+	// Draw title at top
 	DrawTextSmall(c, 2, 1, division.LeagueName, color.RGBA{R: 255, G: 255, B: 0, A: 255})
 
 	// Draw team standings
-	// Use 9 pixel line spacing (7px font + 2px gap)
 	startY := 10
 	lineHeight := 9
 
@@ -85,7 +133,7 @@ func DrawDivisionStandings(c *rgbmatrix.Canvas, division ScoreboardDivision) {
 			break
 		}
 
-		// Team name on left (max 6 chars to leave room for record)
+		// Team name on left (max 6 chars)
 		teamColor := GetTeamColor(team.Name)
 		teamName := team.Name
 		if len(teamName) > 6 {
@@ -93,10 +141,9 @@ func DrawDivisionStandings(c *rgbmatrix.Canvas, division ScoreboardDivision) {
 		}
 		DrawTextSmall(c, 2, y, teamName, teamColor)
 
-		// Record (W-L) right after team name
+		// Record (W-L)
 		record := team.Record
 		recordStr := formatInt(record.Wins, 2) + "-" + formatInt(record.Losses, 2)
-		// Team name is 6 chars * 6px per char = ~36px, plus some padding
 		recordX := 40
 		DrawTextSmall(c, recordX, y, recordStr, color.RGBA{R: 100, G: 200, B: 100, A: 255})
 	}

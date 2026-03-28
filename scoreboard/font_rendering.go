@@ -2,11 +2,89 @@ package scoreboard
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"log"
+	"os"
+
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/opentype"
+	"golang.org/x/image/math/fixed"
 
 	rgbmatrix "github.com/tfk1410/go-rpi-rgb-led-matrix"
 )
+
+// TrueTypeFont manages rendering text with TrueType fonts
+type TrueTypeFont struct {
+	face font.Face
+}
+
+// NewTrueTypeFont loads a TrueType font from a file
+// pointSize is the font size in points (e.g., 8, 10, 12)
+func NewTrueTypeFont(fontPath string, pointSize float64) (*TrueTypeFont, error) {
+	// Read font file
+	fontBytes, err := os.ReadFile(fontPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read font file: %w", err)
+	}
+
+	// Parse font
+	parsed, err := opentype.Parse(fontBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse font: %w", err)
+	}
+
+	// Create face with DPI=72 (standard screen DPI)
+	face, err := opentype.NewFace(parsed, &opentype.FaceOptions{
+		Size:    pointSize,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create font face: %w", err)
+	}
+
+	return &TrueTypeFont{face: face}, nil
+}
+
+// DrawString draws text using the TrueType font on the canvas
+func (tf *TrueTypeFont) DrawString(c *rgbmatrix.Canvas, x, y int, text string, col color.Color) error {
+	bounds := c.Bounds()
+
+	// Create a temporary RGBA image to render text
+	img := image.NewRGBA(bounds)
+
+	// Draw text onto temporary image
+	drawer := &font.Drawer{
+		Dst:  img,
+		Src:  image.NewUniform(col),
+		Face: tf.face,
+		Dot:  fixed.Point26_6{X: fixed.Int26_6(x * 64), Y: fixed.Int26_6((y + 10) * 64)}, // Adjust Y for baseline
+	}
+	drawer.DrawString(text)
+
+	// Copy rendered text pixels from temp image to canvas
+	for py := bounds.Min.Y; py < bounds.Max.Y; py++ {
+		for px := bounds.Min.X; px < bounds.Max.X; px++ {
+			pixel := img.At(px, py)
+			r, g, b, a := pixel.RGBA()
+			// Only copy non-transparent pixels
+			if a > 0 {
+				c.Set(px, py, color.RGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 8)})
+			}
+		}
+	}
+
+	return nil
+}
+
+// Close releases resources
+func (tf *TrueTypeFont) Close() error {
+	if tf.face != nil {
+		_ = tf.face.Close()
+	}
+	return nil
+}
 
 // GlyphBuilder helps you create custom bitmap glyphs
 // You define each glyph as a 2D grid of true/false values
