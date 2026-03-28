@@ -45,9 +45,8 @@ func main() {
 	config.Cols = 64
 	config.HardwareMapping = "adafruit-hat"
 	config.Brightness = 100
-	config.GPIOSlowdown = 4   // Pi 4B - try 3 if too slow
+	config.GPIOSlowdown = 3   // Pi 4B
 	config.RowAddressType = 0 // 0=default for 32-row, change to 1 when using 64-row
-	config.PWMBits = 6        // Lower = less flicker, less color depth (default 11)
 
 	fmt.Printf("Config: Rows=%d, Cols=%d, Mapping=%s, DisableHardwarePulsing=%v\n",
 		config.Rows, config.Cols, config.HardwareMapping, config.DisableHardwarePulsing)
