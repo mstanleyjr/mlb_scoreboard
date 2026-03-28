@@ -67,12 +67,11 @@ func DrawDivisionStandings(c *rgbmatrix.Canvas, division ScoreboardDivision) {
 		}
 	}
 
-	// For 64x64: draw title at top with more space
-	// Font is 7 pixels tall, so we have room for ~9 rows of text
+	// For 64x64: draw title at top
 	DrawTextSmall(c, 2, 1, division.LeagueName, color.RGBA{R: 255, G: 255, B: 0, A: 255})
 
 	// Draw team standings
-	// Use 9 pixel line spacing (7px font + 2px gap) to fit multiple teams
+	// Use 9 pixel line spacing (7px font + 2px gap)
 	startY := 10
 	lineHeight := 9
 
@@ -84,19 +83,19 @@ func DrawDivisionStandings(c *rgbmatrix.Canvas, division ScoreboardDivision) {
 			break
 		}
 
-		// Team name on left
+		// Team name on left (max 6 chars to leave room for record)
 		teamColor := GetTeamColor(team.Name)
 		teamName := team.Name
-		if len(teamName) > 10 {
-			teamName = teamName[:10]
+		if len(teamName) > 6 {
+			teamName = teamName[:6]
 		}
 		DrawTextSmall(c, 2, y, teamName, teamColor)
 
-		// Record (W-L) on right side
+		// Record (W-L) right after team name
 		record := team.Record
 		recordStr := formatInt(record.Wins, 2) + "-" + formatInt(record.Losses, 2)
-		// Calculate X position to right-align (roughly)
-		recordX := width - 18
+		// Team name is 6 chars * 6px per char = ~36px, plus some padding
+		recordX := 40
 		DrawTextSmall(c, recordX, y, recordStr, color.RGBA{R: 100, G: 200, B: 100, A: 255})
 	}
 }
