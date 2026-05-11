@@ -762,8 +762,6 @@ func getScoreboardLiveGameBatter(batterStats statsapi.PlayerStatsResponse, liveG
 		}
 		if batter.LastName != nil {
 			lastName = *batter.LastName
-		} else if fullName != "" {
-			lastName = fullName
 		}
 
 		if liveGame.LiveData.Boxscore != nil && liveGame.LiveData.Boxscore.Teams != nil {
@@ -847,8 +845,6 @@ func getScoreboardLiveGamePitcher(pitcherStats statsapi.PlayerStatsResponse, liv
 			}
 			if liveGame.LiveData.Plays.CurrentPlay.Matchup.Pitcher.LastName != nil {
 				lastName = *liveGame.LiveData.Plays.CurrentPlay.Matchup.Pitcher.LastName
-			} else if fullName != "" {
-				lastName = fullName
 			}
 		}
 		if liveGame.LiveData.Plays.CurrentPlay.Matchup.PitchHand != nil && liveGame.LiveData.Plays.CurrentPlay.Matchup.PitchHand.Code != nil {

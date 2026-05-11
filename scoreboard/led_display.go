@@ -512,6 +512,7 @@ func DrawLiveGameScore(c PixelCanvas, game ScoreboardLiveGame) {
 	homeColor := GetTeamColor(game.HomeTeam.Name)
 	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
 	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
+	dimName := color.RGBA{R: 165, G: 165, B: 165, A: 255}
 	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
 
 	// ===== COMPACT R/H/E/L GRID =====
@@ -589,7 +590,7 @@ func DrawLiveGameScore(c PixelCanvas, game ScoreboardLiveGame) {
 
 	pitcherName := "TBD"
 	if game.CurrentPitcher.FullName != "" {
-		pitcherName = trimToChars(game.CurrentPitcher.LastName, 7)
+		pitcherName = compactLivePlayerName(game.CurrentPitcher.FullName, game.CurrentPitcher.LastName, 10)
 	}
 	pitcherDetail := strings.TrimSpace(fmt.Sprintf("%s%s", pitcherHandLabel(game.CurrentPitcher), trimToChars(game.CurrentPitcher.ERA, 5)))
 	if pitcherDetail == "" {
@@ -598,7 +599,7 @@ func DrawLiveGameScore(c PixelCanvas, game ScoreboardLiveGame) {
 
 	batterName := "TBD"
 	if game.CurrentBatter.FullName != "" {
-		batterName = trimToChars(game.CurrentBatter.LastName, 7)
+		batterName = compactLivePlayerName(game.CurrentBatter.FullName, game.CurrentBatter.LastName, 10)
 	}
 	batterDetail := strings.TrimSpace(fmt.Sprintf("%s%s", trimToChars(game.CurrentBatter.CurrentPosition, 2), trimToChars(game.CurrentBatter.SeasonBattingAverage, 5)))
 	if batterDetail == "" {
@@ -608,14 +609,14 @@ func DrawLiveGameScore(c PixelCanvas, game ScoreboardLiveGame) {
 	playerY1 := gridY + gridH + 8
 	playerY2 := playerY1 + 6
 	if pitcherLeft {
-		drawText3x5CenteredInRange(c, leftX, halfW, playerY1, pitcherName, white)
+		drawText3x5CenteredInRange(c, leftX, halfW, playerY1, pitcherName, dimName)
 		drawText3x4CenteredInRange(c, leftX, halfW, playerY2, pitcherDetail, grey)
-		drawText3x5CenteredInRange(c, rightX, halfW, playerY1, batterName, white)
+		drawText3x5CenteredInRange(c, rightX, halfW, playerY1, batterName, dimName)
 		drawText3x4CenteredInRange(c, rightX, halfW, playerY2, batterDetail, grey)
 	} else {
-		drawText3x5CenteredInRange(c, leftX, halfW, playerY1, batterName, white)
+		drawText3x5CenteredInRange(c, leftX, halfW, playerY1, batterName, dimName)
 		drawText3x4CenteredInRange(c, leftX, halfW, playerY2, batterDetail, grey)
-		drawText3x5CenteredInRange(c, rightX, halfW, playerY1, pitcherName, white)
+		drawText3x5CenteredInRange(c, rightX, halfW, playerY1, pitcherName, dimName)
 		drawText3x4CenteredInRange(c, rightX, halfW, playerY2, pitcherDetail, grey)
 	}
 
@@ -630,7 +631,6 @@ func DrawLiveGameScore(c PixelCanvas, game ScoreboardLiveGame) {
 	if lastPlayText != "" {
 		lastPlayText = "Prev: " + lastPlayText
 		lastPlayY := drawBasesY + 3
-		fmt.Println("LastPlayY:", lastPlayY, "height :", height)
 		if lastPlayY+4 < height {
 			drawText3x5CenteredInRange(c, 1, width-2, lastPlayY, trimToChars(lastPlayText, 14), orange)
 		}
@@ -909,6 +909,18 @@ func drawText3x5CenteredInRange(c PixelCanvas, xStart, regionW, y int, text stri
 		x = xStart
 	}
 	DrawText3x5(c, x, y, text, col)
+}
+
+func compactLivePlayerName(fullName, lastName string, maxChars int) string {
+	fullName = strings.TrimSpace(fullName)
+	lastName = strings.TrimSpace(lastName)
+	if lastName != "" && lastName != fullName {
+		return trimToChars(lastName, maxChars)
+	}
+	if fullName != "" {
+		return trimToChars(fullName, maxChars)
+	}
+	return "TBD"
 }
 
 // GetTeamColor returns a team's brand color

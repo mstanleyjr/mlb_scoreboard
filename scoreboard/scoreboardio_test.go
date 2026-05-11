@@ -195,8 +195,8 @@ func TestGetScoreboardLiveGameBatter_NilSafe(t *testing.T) {
 			},
 		}
 		got := getScoreboardLiveGameBatter(statsapi.PlayerStatsResponse{}, game, ScoreboardLiveGame{HalfInning: "top", CurrentBatterId: 700337})
-		if got.LastName != "Edgar Quero" {
-			t.Fatalf("expected full name fallback Edgar Quero, got %+v", got)
+		if got.FullName != "Edgar Quero" || got.LastName != "" {
+			t.Fatalf("expected full name only with empty last name, got %+v", got)
 		}
 	})
 }
@@ -224,8 +224,8 @@ func TestGetScoreboardLiveGamePitcher_NilSafe(t *testing.T) {
 			},
 		}
 		got := getScoreboardLiveGamePitcher(statsapi.PlayerStatsResponse{}, game)
-		if got.LastName != "Brad Lord" {
-			t.Fatalf("expected full name fallback Brad Lord, got %+v", got)
+		if got.FullName != "Brad Lord" || got.LastName != "" {
+			t.Fatalf("expected full name only with empty last name, got %+v", got)
 		}
 	})
 }
