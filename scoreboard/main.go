@@ -88,7 +88,7 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 			li := *league.League.Id
 			di := divisionIndex
 			pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-				DivisionStandingsDisplay(scoreboardInfo, li, di, controller)
+				DivisionStandingsDisplay(ctx, scoreboardInfo, li, di, controller)
 			})
 		}
 	}
