@@ -83,21 +83,21 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 	fmt.Printf("Batter stats: %+v\n", batter)
 
 	pages := make([]func(scoreboardInfo ScoreboardInformation), 0)
-	//for _, league := range leagueMap {
-	//	for divisionIndex := range league.Divisions {
-	//		li := *league.League.Id
-	//		di := divisionIndex
-	//		pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-	//			DivisionStandingsDisplay(scoreboardInfo, li, di, controller)
-	//		})
-	//	}
-	//}
-	//pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-	//	NextMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
-	//})
-	//pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-	//	LastMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
-	//})
+	for _, league := range leagueMap {
+		for divisionIndex := range league.Divisions {
+			li := *league.League.Id
+			di := divisionIndex
+			pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+				DivisionStandingsDisplay(scoreboardInfo, li, di, controller)
+			})
+		}
+	}
+	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+		NextMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
+	})
+	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+		LastMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
+	})
 	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
 		LiveLookInDisplay(ctx, scoreboardInfo, mlbClient, controller)
 	})
