@@ -407,14 +407,14 @@ func drawInningOutsCentered(c PixelCanvas, xStart, regionW, y int, inningText st
 	circleW := 7
 	gap := 2
 	textGap := 5
-	textW := len(inningText) * fontAdv3x4
+	textW := len(inningText) * fontAdv
 	totalW := textW + textGap + (circleW * 3) + (gap * 2)
 	x := xStart + (regionW-totalW)/2
 	if x < xStart {
 		x = xStart
 	}
 
-	DrawText3x4(c, x, y+1, inningText, textCol)
+	DrawText(c, x, y, inningText, textCol)
 	outsStart := x + textW + textGap
 	for i := 0; i < 3; i++ {
 		drawOutCircle(c, outsStart+i*(circleW+gap), y, i < outs, outlineCol, fillCol)
@@ -589,33 +589,33 @@ func DrawLiveGameScore(c PixelCanvas, game ScoreboardLiveGame) {
 
 	pitcherName := "TBD"
 	if game.CurrentPitcher.FullName != "" {
-		pitcherName = trimToChars(game.CurrentPitcher.LastName, 10)
+		pitcherName = trimToChars(game.CurrentPitcher.LastName, 7)
 	}
-	pitcherDetail := strings.TrimSpace(fmt.Sprintf("%s %s", pitcherHandLabel(game.CurrentPitcher), trimToChars(game.CurrentPitcher.ERA, 5)))
+	pitcherDetail := strings.TrimSpace(fmt.Sprintf("%s%s", pitcherHandLabel(game.CurrentPitcher), trimToChars(game.CurrentPitcher.ERA, 5)))
 	if pitcherDetail == "" {
 		pitcherDetail = "TBD"
 	}
 
 	batterName := "TBD"
 	if game.CurrentBatter.FullName != "" {
-		batterName = trimToChars(game.CurrentBatter.LastName, 10)
+		batterName = trimToChars(game.CurrentBatter.LastName, 7)
 	}
-	batterDetail := strings.TrimSpace(fmt.Sprintf("%s %s", trimToChars(game.CurrentBatter.CurrentPosition, 2), trimToChars(game.CurrentBatter.SeasonBattingAverage, 5)))
+	batterDetail := strings.TrimSpace(fmt.Sprintf("%s%s", trimToChars(game.CurrentBatter.CurrentPosition, 2), trimToChars(game.CurrentBatter.SeasonBattingAverage, 5)))
 	if batterDetail == "" {
 		batterDetail = "TBD"
 	}
 
 	playerY1 := gridY + gridH + 8
-	playerY2 := playerY1 + 5
+	playerY2 := playerY1 + 6
 	if pitcherLeft {
-		drawText3x4CenteredInRange(c, leftX, halfW, playerY1, pitcherName, white)
+		drawText3x5CenteredInRange(c, leftX, halfW, playerY1, pitcherName, white)
 		drawText3x4CenteredInRange(c, leftX, halfW, playerY2, pitcherDetail, grey)
-		drawText3x4CenteredInRange(c, rightX, halfW, playerY1, batterName, white)
+		drawText3x5CenteredInRange(c, rightX, halfW, playerY1, batterName, white)
 		drawText3x4CenteredInRange(c, rightX, halfW, playerY2, batterDetail, grey)
 	} else {
-		drawText3x4CenteredInRange(c, leftX, halfW, playerY1, batterName, white)
+		drawText3x5CenteredInRange(c, leftX, halfW, playerY1, batterName, white)
 		drawText3x4CenteredInRange(c, leftX, halfW, playerY2, batterDetail, grey)
-		drawText3x4CenteredInRange(c, rightX, halfW, playerY1, pitcherName, white)
+		drawText3x5CenteredInRange(c, rightX, halfW, playerY1, pitcherName, white)
 		drawText3x4CenteredInRange(c, rightX, halfW, playerY2, pitcherDetail, grey)
 	}
 
@@ -632,7 +632,7 @@ func DrawLiveGameScore(c PixelCanvas, game ScoreboardLiveGame) {
 		lastPlayY := drawBasesY + 3
 		fmt.Println("LastPlayY:", lastPlayY, "height :", height)
 		if lastPlayY+4 < height {
-			drawText3x4CenteredInRange(c, 1, width-2, lastPlayY, trimToChars(lastPlayText, 16), orange)
+			drawText3x5CenteredInRange(c, 1, width-2, lastPlayY, trimToChars(lastPlayText, 14), orange)
 		}
 	}
 
@@ -860,6 +860,55 @@ func DrawText3x4Centered(c PixelCanvas, y int, text string, col color.RGBA) {
 		x = 0
 	}
 	DrawText3x4(c, x, y, text, col)
+}
+
+// DrawText3x5 draws text using the 3x5 bitmap font at position (x, y).
+func DrawText3x5(c PixelCanvas, x, y int, text string, col color.RGBA) {
+	bounds := c.Bounds()
+	cx := x
+	for _, ch := range text {
+		if cx >= bounds.Max.X {
+			break
+		}
+
+		glyph, ok := font3x5[ch]
+		if !ok {
+			glyph = font3x5[' ']
+		}
+
+		for row := 0; row < fontH; row++ {
+			for colIdx := 0; colIdx < fontW; colIdx++ {
+				if glyph[row]&(1<<uint(fontW-1-colIdx)) != 0 {
+					px := cx + colIdx
+					py := y + row
+					if px >= 0 && px < bounds.Max.X && py >= 0 && py < bounds.Max.Y {
+						c.Set(px, py, col)
+					}
+				}
+			}
+		}
+		cx += fontAdv
+	}
+}
+
+// DrawText3x5Centered renders 3x5 text centered horizontally on the canvas.
+func DrawText3x5Centered(c PixelCanvas, y int, text string, col color.RGBA) {
+	w := c.Bounds().Max.X
+	tw := len(text) * fontAdv
+	x := (w - tw) / 2
+	if x < 0 {
+		x = 0
+	}
+	DrawText3x5(c, x, y, text, col)
+}
+
+func drawText3x5CenteredInRange(c PixelCanvas, xStart, regionW, y int, text string, col color.RGBA) {
+	tw := len(text) * fontAdv
+	x := xStart + (regionW-tw)/2
+	if x < xStart {
+		x = xStart
+	}
+	DrawText3x5(c, x, y, text, col)
 }
 
 // GetTeamColor returns a team's brand color
