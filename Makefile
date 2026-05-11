@@ -1,4 +1,3 @@
-SHELL := /bin/zsh
 
 .PHONY: help sim sim-term pi-run fmt test
 
