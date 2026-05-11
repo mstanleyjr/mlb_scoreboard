@@ -62,7 +62,7 @@ func LoadingScreen() {
 	DisplayMutex.Unlock()
 }
 
-func DivisionStandingsDisplay(info ScoreboardInformation, leagueID int32, divisionIndex int, controller *DisplayController) {
+func DivisionStandingsDisplay(ctx context.Context, info ScoreboardInformation, leagueID int32, divisionIndex int, controller *DisplayController) {
 	leagueMap := info.LeagueMap
 
 	// Safety check: ensure league exists
@@ -146,7 +146,7 @@ func DivisionStandingsDisplay(info ScoreboardInformation, leagueID int32, divisi
 	CurrentDisplayData = displayInfo
 	DisplayMutex.Unlock()
 
-	DisplayLoop(1*time.Second, time.Second*8, controller)
+	DisplayLoop(ctx, 1*time.Second, time.Second*8, controller)
 	fmt.Println("Finished displaying division standings.")
 }
 
@@ -255,7 +255,7 @@ func NextMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 	CurrentDisplayData = displayInfo
 	DisplayMutex.Unlock()
 
-	DisplayLoop(1*time.Second, time.Second*8, controller)
+	DisplayLoop(ctx, 1*time.Second, time.Second*8, controller)
 	fmt.Println("Finished displaying next matchup.")
 }
 
@@ -418,7 +418,7 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 	CurrentDisplayData = displayInfo
 	DisplayMutex.Unlock()
 
-	DisplayLoop(1*time.Second, time.Second*8, controller)
+	DisplayLoop(ctx, 1*time.Second, time.Second*8, controller)
 	fmt.Println("Finished displaying last completed matchup.")
 }
 
@@ -488,7 +488,7 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 		}
 
 		// Keep display state updated; renderer loop draws from CurrentDisplayData.
-		DisplayLoop(1*time.Second, callInterval, controller)
+		DisplayLoop(ctx, 1*time.Second, callInterval, controller)
 
 		latestInfo, err := m.GetLiveGame(ctx, *game.GamePk)
 		if err != nil {
@@ -547,7 +547,7 @@ func LiveLookInDisplay(ctx context.Context, info ScoreboardInformation, m *stats
 		CurrentDisplayData = gameInfo
 		DisplayMutex.Unlock()
 
-		DisplayLoop(1*time.Second, callInterval, controller)
+		DisplayLoop(ctx, 1*time.Second, callInterval, controller)
 	}
 
 	println("Finishing live look-in display")

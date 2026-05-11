@@ -382,14 +382,14 @@ func drawBallsStrikesCountCentered(c PixelCanvas, y int, balls int, strikes int,
 		x = 0
 	}
 
-	DrawText3x4(c, x, y+1, "B", labelCol)
+	DrawText3x5(c, x, y, "B", labelCol)
 	ballsStart := x + fontAdv3x4 + labelGap
 	for i := 0; i < 3; i++ {
 		drawOutCircle(c, ballsStart+i*(circleW+ballGap), y, i < balls, ballOutlineCol, ballFillCol)
 	}
 
 	strikesStart := ballsStart + (circleW * 3) + (ballGap * 2) + groupGap
-	DrawText3x4(c, strikesStart, y+1, "S", labelCol)
+	DrawText3x5(c, strikesStart, y, "S", labelCol)
 	strikesStart += fontAdv3x4 + labelGap
 	for i := 0; i < 2; i++ {
 		drawOutCircle(c, strikesStart+i*(circleW+strikeGap), y, i < strikes, strikeOutlineCol, strikeFillCol)
@@ -610,14 +610,14 @@ func DrawLiveGameScore(c PixelCanvas, game ScoreboardLiveGame) {
 	playerY2 := playerY1 + 6
 	if pitcherLeft {
 		drawText3x5CenteredInRange(c, leftX, halfW, playerY1, pitcherName, dimName)
-		drawText3x4CenteredInRange(c, leftX, halfW, playerY2, pitcherDetail, grey)
+		drawText3x5CenteredInRange(c, leftX, halfW, playerY2, pitcherDetail, grey)
 		drawText3x5CenteredInRange(c, rightX, halfW, playerY1, batterName, dimName)
-		drawText3x4CenteredInRange(c, rightX, halfW, playerY2, batterDetail, grey)
+		drawText3x5CenteredInRange(c, rightX, halfW, playerY2, batterDetail, grey)
 	} else {
 		drawText3x5CenteredInRange(c, leftX, halfW, playerY1, batterName, dimName)
-		drawText3x4CenteredInRange(c, leftX, halfW, playerY2, batterDetail, grey)
+		drawText3x5CenteredInRange(c, leftX, halfW, playerY2, batterDetail, grey)
 		drawText3x5CenteredInRange(c, rightX, halfW, playerY1, pitcherName, dimName)
-		drawText3x4CenteredInRange(c, rightX, halfW, playerY2, pitcherDetail, grey)
+		drawText3x5CenteredInRange(c, rightX, halfW, playerY2, pitcherDetail, grey)
 	}
 
 	drawBallsStrikesCountCentered(c, playerY2+6, game.Balls, game.Strikes, grey, grey, color.RGBA{R: 100, G: 200, B: 100, A: 255}, grey, color.RGBA{R: 255, G: 150, B: 50, A: 255})

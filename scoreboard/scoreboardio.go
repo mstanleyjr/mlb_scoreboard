@@ -1,6 +1,7 @@
 package scoreboard
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -235,22 +236,40 @@ func FindLastCompletedGame(info ScoreboardInformation) (*statsapi.BaseballSchedu
 
 // DisplayLoop now handles only timing/pause control.
 // Rendering is performed by each display function before entering the loop.
-func DisplayLoop(condCheckInterval time.Duration, displayDuration time.Duration, controller *DisplayController) {
+func DisplayLoop(ctx context.Context, condCheckInterval time.Duration, displayDuration time.Duration, controller *DisplayController) {
 	fmt.Println("DisplayLoop")
 
 	ticker := time.NewTicker(condCheckInterval)
-	done := time.After(displayDuration)
+	done := time.NewTimer(displayDuration)
+	defer done.Stop()
+
+	go func() {
+		<-ctx.Done()
+		controller.Mu.Lock()
+		controller.Cond.Broadcast()
+		controller.Mu.Unlock()
+	}()
 
 	count := 0
 	for {
 		select {
-		case <-done:
+		case <-ctx.Done():
+			ticker.Stop()
+			fmt.Print("\n")
+			return
+		case <-done.C:
 			ticker.Stop()
 			fmt.Print("\n")
 			return
 		case <-ticker.C:
 			controller.Mu.Lock()
 			for controller.Paused {
+				if ctx.Err() != nil {
+					controller.Mu.Unlock()
+					ticker.Stop()
+					fmt.Print("\n")
+					return
+				}
 				fmt.Println("Paused, waiting...")
 				controller.Cond.Wait()
 			}

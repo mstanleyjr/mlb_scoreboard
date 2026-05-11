@@ -6,7 +6,10 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/mstanleyjr/mlb_scoreboard/scoreboard"
@@ -52,7 +55,7 @@ func main() {
 	fmt.Println("Canvas created, starting scoreboard...")
 
 	// Set up context and wait group for goroutines
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	var wg sync.WaitGroup
