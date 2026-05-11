@@ -17,23 +17,6 @@ var (
 	canvas *rgbmatrix.Canvas
 )
 
-// Global display state for LED matrix - now defined in scoreboard package
-// var (
-// 	currentDisplayType DisplayType
-// 	currentDisplayData interface{}
-// 	displayMutex       sync.RWMutex
-// )
-
-// type DisplayType int
-
-// const (
-// 	DisplayTypeLoading DisplayType = iota
-// 	DisplayTypeDivisionStandings
-// 	DisplayTypeLiveGame
-// 	DisplayTypeNextMatchup
-// 	DisplayTypeLastMatchup
-// )
-
 func main() {
 	fmt.Println("HERE WE GOOOOO")
 
@@ -110,8 +93,15 @@ func main() {
 				if game, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardLiveGame); ok {
 					scoreboard.DrawLiveGameScore(canvas, game)
 				}
+			case scoreboard.DisplayTypeNextMatchup:
+				if next, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardNextMatchup); ok {
+					scoreboard.DrawNextMatchup(canvas, next)
+				}
+			case scoreboard.DisplayTypeLastMatchup:
+				if last, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardLastMatchup); ok {
+					scoreboard.DrawLastMatchup(canvas, last)
+				}
 			default:
-				// Draw test pattern as fallback
 				DrawTestPattern(canvas)
 			}
 			scoreboard.DisplayMutex.RUnlock()
@@ -171,44 +161,22 @@ func DrawLoadingScreen(c *rgbmatrix.Canvas) {
 	width := bounds.Max.X
 	height := bounds.Max.Y
 
-	// Clear canvas
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			c.Set(x, y, color.RGBA{R: 0, G: 0, B: 0, A: 255})
 		}
 	}
 
-	// Draw "LOADING" text in the center
-	loadingText := "LOADING"
+	text := "LOADING"
 	textColor := color.RGBA{R: 255, G: 255, B: 0, A: 255}
 
-	// Center the text
-	textWidth := len(loadingText) * 4 // Approximate width
+	// 3x5 font with 1px gap -> 4px advance per character.
+	textWidth := len(text) * 4
 	startX := (width - textWidth) / 2
-	startY := height / 2
-
-	for i := range loadingText {
-		x := startX + (i * 4)
-		y := startY
-
-		// Draw a simple character box
-		for j := 0; j < 3; j++ {
-			c.Set(x+j, y, textColor)
-			c.Set(x+j, y+4, textColor)
-		}
-		for j := 0; j < 5; j++ {
-			c.Set(x, y+j, textColor)
-			c.Set(x+2, y+j, textColor)
-		}
+	startY := (height - 5) / 2
+	if startX < 0 {
+		startX = 0
 	}
 
-	// Draw animated dots
-	dotY := startY + 8
-	for i := 0; i < 3; i++ {
-		dotX := startX + textWidth + 4 + (i * 6)
-		c.Set(dotX, dotY, textColor)
-		c.Set(dotX+1, dotY, textColor)
-		c.Set(dotX, dotY+1, textColor)
-		c.Set(dotX+1, dotY+1, textColor)
-	}
+	scoreboard.DrawTextSmall(c, startX, startY, text, textColor)
 }

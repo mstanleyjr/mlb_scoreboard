@@ -54,7 +54,6 @@ func (m *MLBClient) GetMLBTeams(ctx context.Context) (TeamsRestObject, error) {
 }
 
 func (m *MLBClient) GetMLBTeamSchedule(ctx context.Context, teamID int32) (ScheduleRestObject, error) {
-	fmt.Println("Getting MLB TeamSchedule")
 	var sportID *[]int32
 	sportID = &[]int32{MLB_SPORTS_ID}
 
@@ -269,19 +268,6 @@ func (m *MLBClient) GetMLBPLayerStats(ctx context.Context, playerID int32) (Play
 		return PlayerStatsResponse{}, err
 	}
 
-	//defer resp.Body.Close()
-	//
-	//bodyBytes, err := io.ReadAll(resp.Body)
-	//if err != nil {
-	//	println("Error reading body: %v", err)
-	//}
-	//
-	//// 4. Convert the byte slice to a string
-	//bodyString := string(bodyBytes)
-	//
-	//// Print the resulting JSON string
-	//fmt.Println(bodyString)
-
 	var stats PlayerStatsResponse
 	err = json.NewDecoder(resp.Body).Decode(&stats)
 	if err != nil {
@@ -289,4 +275,20 @@ func (m *MLBClient) GetMLBPLayerStats(ctx context.Context, playerID int32) (Play
 		return PlayerStatsResponse{}, err
 	}
 	return stats, nil
+}
+
+func (m *MLBClient) GetMLBPlayer(ctx context.Context, playerID int32) (BaseballPersonRestObject, error) {
+	fields := []string{"id", "fullName", "pitchHand", "batSide"}
+	resp, err := m.client.Person(ctx, playerID, &PersonParams{Fields: &fields})
+	if err != nil {
+		println("Error getting player data: ", err.Error())
+		return BaseballPersonRestObject{}, err
+	}
+	var person BaseballPersonRestObject
+	err = json.NewDecoder(resp.Body).Decode(&person)
+	if err != nil {
+		println("Error decoding player response: ", err.Error())
+		return BaseballPersonRestObject{}, err
+	}
+	return person, nil
 }

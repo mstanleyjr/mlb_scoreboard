@@ -10,8 +10,6 @@ import (
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/image/math/fixed"
-
-	rgbmatrix "github.com/tfk1410/go-rpi-rgb-led-matrix"
 )
 
 // TrueTypeFont manages rendering text with TrueType fonts
@@ -48,7 +46,7 @@ func NewTrueTypeFont(fontPath string, pointSize float64) (*TrueTypeFont, error) 
 }
 
 // DrawString draws text using the TrueType font on the canvas
-func (tf *TrueTypeFont) DrawString(c *rgbmatrix.Canvas, x, y int, text string, col color.Color) error {
+func (tf *TrueTypeFont) DrawString(c PixelCanvas, x, y int, text string, col color.Color) error {
 	bounds := c.Bounds()
 
 	// Create a temporary RGBA image to render text
@@ -135,7 +133,7 @@ func (gb *GlyphBuilder) AddGlyph(ch rune, pattern []string) error {
 }
 
 // DrawGlyph draws a single glyph on the canvas
-func (gb *GlyphBuilder) DrawGlyph(c *rgbmatrix.Canvas, x, y int, ch rune, col color.Color) {
+func (gb *GlyphBuilder) DrawGlyph(c PixelCanvas, x, y int, ch rune, col color.Color) {
 	glyph, ok := gb.Glyphs[ch]
 	if !ok {
 		return // Character not found, skip
@@ -156,7 +154,7 @@ func (gb *GlyphBuilder) DrawGlyph(c *rgbmatrix.Canvas, x, y int, ch rune, col co
 }
 
 // DrawString draws a string using custom glyphs
-func (gb *GlyphBuilder) DrawString(c *rgbmatrix.Canvas, x, y int, text string, col color.Color) {
+func (gb *GlyphBuilder) DrawString(c PixelCanvas, x, y int, text string, col color.Color) {
 	cx := x
 	for _, ch := range text {
 		gb.DrawGlyph(c, cx, y, ch, col)

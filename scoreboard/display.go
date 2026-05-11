@@ -3,12 +3,37 @@ package scoreboard
 import (
 	"context"
 	"fmt"
+	"image"
+	"image/color"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/mstanleyjr/mlb_scoreboard/third-party/oapi/statsapi"
 )
+
+// MockCanvas is a simple PixelCanvas implementation for use when a real canvas isn't available.
+// It's useful for testing and for display functions that manage their own canvas lifecycle.
+type MockCanvas struct {
+	w, h int
+	pix  []color.RGBA
+}
+
+func NewMockCanvas(w, h int) *MockCanvas {
+	return &MockCanvas{w: w, h: h, pix: make([]color.RGBA, w*h)}
+}
+
+func (m *MockCanvas) Set(x, y int, c color.Color) {
+	if x < 0 || y < 0 || x >= m.w || y >= m.h {
+		return
+	}
+	r, g, b, a := c.RGBA()
+	m.pix[y*m.w+x] = color.RGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 8)}
+}
+
+func (m *MockCanvas) Bounds() image.Rectangle {
+	return image.Rect(0, 0, m.w, m.h)
+}
 
 // Global display state for LED matrix
 var (
@@ -115,7 +140,7 @@ func DivisionStandingsDisplay(info ScoreboardInformation, leagueID int32, divisi
 
 	fmt.Printf("displayinfo %+v\n", displayInfo)
 
-	// Set display state for LED matrix
+	// Publish state so render loop draws this page.
 	DisplayMutex.Lock()
 	CurrentDisplayType = DisplayTypeDivisionStandings
 	CurrentDisplayData = displayInfo
@@ -136,96 +161,188 @@ func NextMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 		println("No next game found.")
 		return
 	}
-
-	teams := *nextGame.Teams
-
-	homeTeamName := teams["home"].Team.Name
-	awayTeamName := teams["away"].Team.Name
-	awayWins := teams["away"].LeagueRecord.Wins
-	awayLosses := teams["away"].LeagueRecord.Losses
-	homeWins := teams["home"].LeagueRecord.Wins
-	homeLosses := teams["home"].LeagueRecord.Losses
-
-	var homePitcher, awayPitcher ScoreboardPitcher
-
-	if teams["home"].ProbablePitcher != nil {
-		homePitcherId := teams["home"].ProbablePitcher.Id
-		homePitcherName := teams["home"].ProbablePitcher.FullName
-		homePitchHand := teams["home"].ProbablePitcher.PitchHand.Code
-		homePitcherStats, err := client.GetMLBPLayerStats(ctx, *homePitcherId)
-		if err != nil {
-			println("Error getting home pitcher stats: ", err.Error())
-		}
-
-		homePitcherERA, homePitcherWins, homePitcherLosses, homePitcherSaves := GetScoreboardPitcherStats(homePitcherStats)
-		homePitcher = ScoreboardPitcher{
-			Name:   *homePitcherName,
-			Hand:   *homePitchHand,
-			ERA:    homePitcherERA,
-			Wins:   homePitcherWins,
-			Losses: homePitcherLosses,
-			Saves:  homePitcherSaves,
-		}
-	} else {
-		homePitcher = ScoreboardPitcher{
-			Name: "TBD",
-		}
+	if nextGame.GamePk == nil {
+		println("Next game has no gamePk.")
+		return
 	}
 
-	if teams["away"].ProbablePitcher != nil {
-		awayPitcherId := teams["away"].ProbablePitcher.Id
-		awayPitcherName := teams["away"].ProbablePitcher.FullName
-		awayPitchHand := teams["away"].ProbablePitcher.PitchHand.Code
-
-		awayPitcherStats, err := client.GetMLBPLayerStats(ctx, *awayPitcherId)
-		if err != nil {
-			println("Error getting away pitcher stats: ", err.Error())
-		}
-
-		awayPitcherERA, awayPitcherWins, awayPitcherLosses, awayPitcherSaves := GetScoreboardPitcherStats(awayPitcherStats)
-
-		awayPitcher = ScoreboardPitcher{
-			Name:   *awayPitcherName,
-			Hand:   *awayPitchHand,
-			ERA:    awayPitcherERA,
-			Wins:   awayPitcherWins,
-			Losses: awayPitcherLosses,
-			Saves:  awayPitcherSaves,
-		}
-	} else {
-		awayPitcher = ScoreboardPitcher{
-			Name: "TBD",
-		}
+	// Source of truth for this page is the direct game payload.
+	foundNextGame, err := client.GetLiveGame(ctx, *nextGame.GamePk)
+	if err != nil {
+		println("Error getting live game data for next game: ", err.Error())
+		return
 	}
 
-	venue := *nextGame.Venue.Name
-	gameTime := *nextGame.GameDate
+	fmt.Printf("foundNextGame: %+v\n", foundNextGame)
 
-	gameType := info.GameTypeMap[*nextGame.GameType]
+	scheduleTeams := map[string]statsapi.BaseballScheduleItemTeamRestObject{}
+	if nextGame.Teams != nil {
+		scheduleTeams = *nextGame.Teams
+	}
+	liveTeams := map[string]statsapi.BaseballTeamRestObject{}
+	if foundNextGame.GameData != nil && foundNextGame.GameData.Teams != nil {
+		liveTeams = *foundNextGame.GameData.Teams
+	}
+
+	homeSchedule := scheduleTeams["home"]
+	awaySchedule := scheduleTeams["away"]
+	homeLive := liveTeams["home"]
+	awayLive := liveTeams["away"]
+
+	var homeLivePitcher, awayLivePitcher *statsapi.BaseballPersonRestObject
+	if foundNextGame.GameData != nil && foundNextGame.GameData.ProbablePitchers != nil {
+		homeLivePitcher = foundNextGame.GameData.ProbablePitchers.Home
+		awayLivePitcher = foundNextGame.GameData.ProbablePitchers.Away
+	}
+
+	homePitcher := buildProbablePitcher(ctx, client, "home", homeLivePitcher, homeSchedule.ProbablePitcher)
+	awayPitcher := buildProbablePitcher(ctx, client, "away", awayLivePitcher, awaySchedule.ProbablePitcher)
+	fmt.Printf("awayPticher %+v\n\n", awayPitcher)
+
+	homeWins, homeLosses := resolveRecord(homeLive.Record, homeSchedule.LeagueRecord)
+	awayWins, awayLosses := resolveRecord(awayLive.Record, awaySchedule.LeagueRecord)
+
+	venue := ""
+	if foundNextGame.GameData != nil && foundNextGame.GameData.Venue != nil {
+		venue = chooseString(foundNextGame.GameData.Venue.Name, nil, "")
+	}
+	if venue == "" && nextGame.Venue != nil {
+		venue = chooseString(nextGame.Venue.Name, nil, "")
+	}
+
+	gameTime := time.Time{}
+	if foundNextGame.GameData != nil && foundNextGame.GameData.Datetime != nil && foundNextGame.GameData.Datetime.DateTime != nil {
+		gameTime = *foundNextGame.GameData.Datetime.DateTime
+	} else if nextGame.GameDate != nil {
+		gameTime = *nextGame.GameDate
+	}
+
+	gameTypeCode := ""
+	if foundNextGame.GameData != nil && foundNextGame.GameData.Game != nil && foundNextGame.GameData.Game.Type != nil {
+		gameTypeCode = *foundNextGame.GameData.Game.Type
+	} else if nextGame.GameType != nil {
+		gameTypeCode = *nextGame.GameType
+	}
+	gameType := info.GameTypeMap[gameTypeCode]
+
 	displayInfo := ScoreboardNextMatchup{
 		Venue: venue,
 		AwayTeam: ScoreboardNextMatchupTeam{
-			Name:            *awayTeamName,
+			Name:            chooseString(awayLive.Name, scheduleTeamName(awaySchedule), "TBD"),
+			ShortName:       chooseString(awayLive.Abbreviation, scheduleTeamAbbreviation(awaySchedule), ""),
 			ProbablePitcher: awayPitcher,
 			Record: ScoreboardWinLossRecord{
-				Wins:   int(*awayWins),
-				Losses: int(*awayLosses),
+				Wins:   awayWins,
+				Losses: awayLosses,
 			},
 		},
 		HomeTeam: ScoreboardNextMatchupTeam{
-			Name:            *homeTeamName,
+			Name:            chooseString(homeLive.Name, scheduleTeamName(homeSchedule), "TBD"),
+			ShortName:       chooseString(homeLive.Abbreviation, scheduleTeamAbbreviation(homeSchedule), ""),
 			ProbablePitcher: homePitcher,
 			Record: ScoreboardWinLossRecord{
-				Wins:   int(*homeWins),
-				Losses: int(*homeLosses),
+				Wins:   homeWins,
+				Losses: homeLosses,
 			},
 		},
 		DateTime: gameTime,
 		GameType: gameType,
 	}
 	fmt.Printf("displayinfo %+v\n", displayInfo)
+
+	DisplayMutex.Lock()
+	CurrentDisplayType = DisplayTypeNextMatchup
+	CurrentDisplayData = displayInfo
+	DisplayMutex.Unlock()
+
 	DisplayLoop(1*time.Second, time.Second*8, controller)
 	fmt.Println("Finished displaying next matchup.")
+}
+
+func chooseString(primary *string, fallback *string, defaultValue string) string {
+	if primary != nil && *primary != "" {
+		return *primary
+	}
+	if fallback != nil && *fallback != "" {
+		return *fallback
+	}
+	return defaultValue
+}
+
+func scheduleTeamName(t statsapi.BaseballScheduleItemTeamRestObject) *string {
+	if t.Team == nil {
+		return nil
+	}
+	return t.Team.Name
+}
+
+func scheduleTeamAbbreviation(t statsapi.BaseballScheduleItemTeamRestObject) *string {
+	if t.Team == nil {
+		return nil
+	}
+	return t.Team.Abbreviation
+}
+
+func resolveRecord(liveRecord *statsapi.TeamStandingsRecordRestObject, scheduleRecord *statsapi.WinLossRecordRestObject) (wins int, losses int) {
+	if liveRecord != nil {
+		if liveRecord.Wins != nil {
+			wins = int(*liveRecord.Wins)
+		}
+		if liveRecord.Losses != nil {
+			losses = int(*liveRecord.Losses)
+		}
+	}
+	if scheduleRecord != nil {
+		if liveRecord == nil || liveRecord.Wins == nil {
+			if scheduleRecord.Wins != nil {
+				wins = int(*scheduleRecord.Wins)
+			}
+		}
+		if liveRecord == nil || liveRecord.Losses == nil {
+			if scheduleRecord.Losses != nil {
+				losses = int(*scheduleRecord.Losses)
+			}
+		}
+	}
+	return wins, losses
+}
+
+func buildProbablePitcher(ctx context.Context, client *statsapi.MLBClient, side string, livePitcher *statsapi.BaseballPersonRestObject, schedulePitcher *statsapi.BaseballPersonRestObject) ScoreboardPitcher {
+	pitcher := livePitcher
+	if pitcher == nil {
+		pitcher = schedulePitcher
+	}
+	if pitcher == nil {
+		return ScoreboardPitcher{FullName: "TBD"}
+	}
+
+	pitcherName := chooseString(pitcher.FullName, nil, "TBD")
+	pitchHand := getPitchHandFromPerson(pitcher)
+	if pitchHand == "" && pitcher.Id != nil {
+		if fullPitcher, err := client.GetMLBPlayer(ctx, *pitcher.Id); err == nil {
+			pitchHand = getPitchHandFromPerson(&fullPitcher)
+		}
+	}
+
+	if pitcher.Id == nil {
+		return ScoreboardPitcher{FullName: pitcherName, Hand: pitchHand}
+	}
+
+	pitcherStats, err := client.GetMLBPLayerStats(ctx, *pitcher.Id)
+	if err != nil {
+		println("Error getting "+side+" pitcher stats: ", err.Error())
+		return ScoreboardPitcher{FullName: pitcherName, Hand: pitchHand}
+	}
+
+	era, wins, losses, saves := GetScoreboardPitcherStats(pitcherStats)
+	return ScoreboardPitcher{
+		FullName: pitcherName,
+		Hand:     pitchHand,
+		ERA:      era,
+		Wins:     wins,
+		Losses:   losses,
+		Saves:    saves,
+	}
 }
 
 func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client *statsapi.MLBClient, controller *DisplayController) {
@@ -285,16 +402,21 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 			Team:   homeTeam,
 			Winner: homeTeamWinner,
 		},
-		DateTime:       *lastGame.GameDate,
-		GameStatus:     status,
-		Venue:          *lastGame.Venue.Name,
-		GameType:       gameType,
-		FinalInning:    finalInning,
-		WinningPitcher: winner,
-		LosingPitcher:  loser,
-		SavePitcher:    save,
+		DateTime:               *lastGame.GameDate,
+		GameStatus:             status,
+		Venue:                  *lastGame.Venue.Name,
+		GameType:               gameType,
+		FinalInning:            finalInning,
+		WinningPitcherLastName: winner,
+		LosingPitcherLastName:  loser,
+		SavePitcherLastName:    save,
 	}
 	fmt.Printf("displayinfo %+v\n", displayInfo)
+
+	DisplayMutex.Lock()
+	CurrentDisplayType = DisplayTypeLastMatchup
+	CurrentDisplayData = displayInfo
+	DisplayMutex.Unlock()
 
 	DisplayLoop(1*time.Second, time.Second*8, controller)
 	fmt.Println("Finished displaying last completed matchup.")
@@ -365,6 +487,7 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 			}
 		}
 
+		// Keep display state updated; renderer loop draws from CurrentDisplayData.
 		DisplayLoop(1*time.Second, callInterval, controller)
 
 		latestInfo, err := m.GetLiveGame(ctx, *game.GamePk)
@@ -418,6 +541,12 @@ func LiveLookInDisplay(ctx context.Context, info ScoreboardInformation, m *stats
 		}
 
 		fmt.Printf("Live look-in for game ID %d: %+v\n", gameId, gameInfo)
+
+		DisplayMutex.Lock()
+		CurrentDisplayType = DisplayTypeLiveGame
+		CurrentDisplayData = gameInfo
+		DisplayMutex.Unlock()
+
 		DisplayLoop(1*time.Second, callInterval, controller)
 	}
 
