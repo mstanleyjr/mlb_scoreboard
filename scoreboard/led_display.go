@@ -28,37 +28,54 @@ func DrawDivisionStandings(c PixelCanvas, division ScoreboardDivision) {
 	}
 
 	const (
-		titleX      = 1
-		titleY      = 1
-		rowStartY   = 8            // title is 5px tall + 2px gap
-		rowHeight   = fontRowH + 2 // 8px per row: 5px glyph + 3px gap
-		teamX       = 1
-		recordX     = 48
-		maxTeamChar = 15
+		titleY       = 0
+		rowStartY    = 5
+		rowBlockH    = 12
+		rankX        = 1
+		teamX        = 7
+		recordX      = 7
+		gbRightX     = 63
+		maxTeamChars = 13
+		maxGBChar    = 3
 	)
 
-	DrawTextSmall(c, titleX, titleY, division.LeagueName, color.RGBA{R: 255, G: 255, B: 0, A: 255})
+	title := trimToChars(strings.ToUpper(division.LeagueName), 16)
+	DrawText3x4Centered(c, titleY, title, color.RGBA{R: 255, G: 255, B: 0, A: 255})
 
 	for i, team := range division.Teams {
-		y := rowStartY + (i * rowHeight) + 3
-		if y+7 >= height {
+		nameY := rowStartY + (i * rowBlockH)
+		statsY := nameY + 6
+		separatorY := nameY + rowBlockH - 1
+		if statsY+fontH >= height {
 			break
 		}
 
-		teamName := team.Name
-		if len(teamName) > maxTeamChar {
-			teamName = teamName[:maxTeamChar]
-		}
-		DrawTextSmall(c, teamX, y, teamName, GetTeamColor(team.Name))
+		rank := trimToChars(fmt.Sprintf("%d", team.Rank), 2)
+		name := trimToChars(strings.ToUpper(chooseStringValue(team.ShortName, team.Name)), maxTeamChars)
+		record := trimToChars(fmt.Sprintf("%d-%d", team.Record.Wins, team.Record.Losses), 6)
+		gb := trimToChars(formatDivisionGamesBack(team.GamesBack), maxGBChar)
 
-		// Compact record avoids clipping on 64px width (e.g. 1-0, 10-8)
-		recordStr := fmt.Sprintf("%d-%d", team.Record.Wins, team.Record.Losses)
-		maxRecordChars := (width - recordX) / fontAdv
-		if len(recordStr) > maxRecordChars {
-			recordStr = recordStr[:maxRecordChars]
+		DrawText(c, rankX, nameY, rank, color.RGBA{R: 180, G: 180, B: 180, A: 255})
+		DrawText(c, teamX, nameY, name, GetTeamColor(team.Name))
+		DrawText(c, recordX, statsY, record, color.RGBA{R: 120, G: 180, B: 255, A: 255})
+		drawTextRightAligned(c, gbRightX, statsY, gb, color.RGBA{R: 100, G: 200, B: 100, A: 255})
+
+		if i < len(division.Teams)-1 && separatorY < height {
+			for x := 1; x < width-1; x++ {
+				c.Set(x, separatorY, color.RGBA{R: 70, G: 70, B: 70, A: 255})
+			}
 		}
-		DrawTextSmall(c, recordX, y, recordStr, color.RGBA{R: 100, G: 200, B: 100, A: 255})
 	}
+}
+
+func formatDivisionGamesBack(gamesBack string) string {
+	gb := strings.TrimSpace(gamesBack)
+	switch gb {
+	case "", "-", "0", "0.0":
+		return "-"
+	}
+	gb = strings.TrimSuffix(gb, ".0")
+	return gb
 }
 
 func DrawNextMatchup(c PixelCanvas, m ScoreboardNextMatchup) {
@@ -300,6 +317,29 @@ func drawText3x4CenteredInRange(c PixelCanvas, xStart, regionW, y int, text stri
 		x = xStart
 	}
 	DrawText3x4(c, x, y, text, col)
+}
+
+func drawText3x4RightAligned(c PixelCanvas, rightX, y int, text string, col color.RGBA) {
+	x := rightX - (len(text) * fontAdv3x4)
+	if x < 0 {
+		x = 0
+	}
+	DrawText3x4(c, x, y, text, col)
+}
+
+func drawTextRightAligned(c PixelCanvas, rightX, y int, text string, col color.RGBA) {
+	x := rightX - (len(text) * fontAdv)
+	if x < 0 {
+		x = 0
+	}
+	DrawTextSmall(c, x, y, text, col)
+}
+
+func chooseStringValue(primary, fallback string) string {
+	if strings.TrimSpace(primary) != "" {
+		return primary
+	}
+	return fallback
 }
 
 func drawOutCircle(c PixelCanvas, x, y int, filled bool, outlineCol, fillCol color.RGBA) {

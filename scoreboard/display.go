@@ -123,8 +123,9 @@ func DivisionStandingsDisplay(ctx context.Context, info ScoreboardInformation, l
 		}
 
 		divisionTeams = append(divisionTeams, ScoreboardDivisionTeam{
-			Name: *standing.Team.Name,
-			Rank: rank,
+			Name:      *standing.Team.Name,
+			ShortName: chooseString(standing.Team.TeamName, standing.Team.ClubName, chooseString(standing.Team.Abbreviation, standing.Team.Name, "")),
+			Rank:      rank,
 			Record: ScoreboardWinLossRecord{
 				Wins:   int(*standing.Wins),
 				Losses: int(*standing.Losses),

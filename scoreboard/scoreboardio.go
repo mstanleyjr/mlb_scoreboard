@@ -32,6 +32,7 @@ type ScoreboardDivision struct {
 
 type ScoreboardDivisionTeam struct {
 	Name      string
+	ShortName string
 	Rank      int
 	Record    ScoreboardWinLossRecord
 	GamesBack string
