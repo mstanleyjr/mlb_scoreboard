@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"sync"
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -13,9 +15,12 @@ const CLIENT_SERVER = "https://statsapi.mlb.com"
 const MLB_SPORTS_ID int32 = 1
 const MLB_SEASON = "2026"
 const TIMECODE_LAYOUT = "20060102_150405"
+const playerLookupRefreshInterval = 24 * time.Hour
 
 type MLBClient struct {
-	client *Client
+	client         *Client
+	playerLookupMu sync.RWMutex
+	playerLookup   map[int32]BaseballPersonRestObject
 }
 
 type LeagueResponseObject struct {
@@ -27,7 +32,93 @@ func NewMLBClient() (*MLBClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &MLBClient{client: mlbClient}, nil
+	return &MLBClient{
+		client:       mlbClient,
+		playerLookup: make(map[int32]BaseballPersonRestObject),
+	}, nil
+}
+
+func decodeJSON[T any](resp *http.Response) (T, error) {
+	var value T
+	defer resp.Body.Close()
+
+	if err := json.NewDecoder(resp.Body).Decode(&value); err != nil {
+		return value, err
+	}
+
+	return value, nil
+}
+
+func firstPerson(people PeopleRestObject, playerID int32) (BaseballPersonRestObject, error) {
+	if people.People == nil || len(*people.People) == 0 {
+		return BaseballPersonRestObject{}, fmt.Errorf("no player returned for playerID %d", playerID)
+	}
+
+	return (*people.People)[0], nil
+}
+
+func (m *MLBClient) playerFromLookup(playerID int32) (BaseballPersonRestObject, bool) {
+	m.playerLookupMu.RLock()
+	player, ok := m.playerLookup[playerID]
+	m.playerLookupMu.RUnlock()
+	if !ok {
+		return BaseballPersonRestObject{}, false
+	}
+	return player, true
+}
+
+func (m *MLBClient) storePlayerInLookup(playerID int32, player BaseballPersonRestObject) {
+	m.playerLookupMu.Lock()
+	m.playerLookup[playerID] = player
+	m.playerLookupMu.Unlock()
+}
+
+func buildPlayerLookup(players []BaseballPersonRestObject) map[int32]BaseballPersonRestObject {
+	lookup := make(map[int32]BaseballPersonRestObject, len(players))
+	for _, player := range players {
+		if player.Id == nil {
+			continue
+		}
+		lookup[*player.Id] = player
+	}
+	return lookup
+}
+
+func clonePlayerLookup(src map[int32]BaseballPersonRestObject) map[int32]BaseballPersonRestObject {
+	cloned := make(map[int32]BaseballPersonRestObject, len(src))
+	for id, player := range src {
+		cloned[id] = player
+	}
+	return cloned
+}
+
+func (m *MLBClient) PlayerLookupSnapshot() map[int32]BaseballPersonRestObject {
+	m.playerLookupMu.RLock()
+	defer m.playerLookupMu.RUnlock()
+	return clonePlayerLookup(m.playerLookup)
+}
+
+func (m *MLBClient) GetMLBPlayers(ctx context.Context) ([]BaseballPersonRestObject, error) {
+	seasonID := MLB_SEASON
+
+	resp, err := m.client.SportPlayers(ctx, MLB_SPORTS_ID, &SportPlayersParams{
+		Season: &seasonID,
+	})
+	if err != nil {
+		println("Error getting players: ", err.Error())
+		return nil, err
+	}
+
+	people, err := decodeJSON[PeopleRestObject](resp)
+	if err != nil {
+		println("Error decoding players response: ", err.Error())
+		return nil, err
+	}
+	if people.People == nil {
+		return nil, fmt.Errorf("no players returned for sportID %d", MLB_SPORTS_ID)
+	}
+
+	return *people.People, nil
 }
 
 func (m *MLBClient) GetMLBTeams(ctx context.Context) (TeamsRestObject, error) {
@@ -43,8 +134,7 @@ func (m *MLBClient) GetMLBTeams(ctx context.Context) (TeamsRestObject, error) {
 		return TeamsRestObject{}, err
 	}
 
-	var teams TeamsRestObject
-	err = json.NewDecoder(resp.Body).Decode(&teams)
+	teams, err := decodeJSON[TeamsRestObject](resp)
 	if err != nil {
 		println("Error decoding teams response: ", err.Error())
 		return TeamsRestObject{}, err
@@ -54,7 +144,6 @@ func (m *MLBClient) GetMLBTeams(ctx context.Context) (TeamsRestObject, error) {
 }
 
 func (m *MLBClient) GetMLBTeamSchedule(ctx context.Context, teamID int32) (ScheduleRestObject, error) {
-	fmt.Println("Getting MLB TeamSchedule")
 	var sportID *[]int32
 	sportID = &[]int32{MLB_SPORTS_ID}
 
@@ -74,9 +163,7 @@ func (m *MLBClient) GetMLBTeamSchedule(ctx context.Context, teamID int32) (Sched
 		return ScheduleRestObject{}, err
 	}
 
-	var schedule ScheduleRestObject
-
-	err = json.NewDecoder(resp.Body).Decode(&schedule)
+	schedule, err := decodeJSON[ScheduleRestObject](resp)
 	if err != nil {
 		println("Error decoding schedule response: ", err.Error())
 		return ScheduleRestObject{}, err
@@ -112,8 +199,7 @@ func (m *MLBClient) GetMLBGamesForCurrentDay(ctx context.Context) (ScheduleRestO
 		return ScheduleRestObject{}, err
 	}
 
-	var schedule ScheduleRestObject
-	err = json.NewDecoder(resp.Body).Decode(&schedule)
+	schedule, err := decodeJSON[ScheduleRestObject](resp)
 	if err != nil {
 		println("Error decoding games for date response: ", err.Error())
 		return ScheduleRestObject{}, err
@@ -139,8 +225,7 @@ func (m *MLBClient) GetMLBDivisionStandings(ctx context.Context, leagueID int32)
 		return StandingsRestObject{}, err
 	}
 
-	var standings StandingsRestObject
-	err = json.NewDecoder(resp.Body).Decode(&standings)
+	standings, err := decodeJSON[StandingsRestObject](resp)
 	if err != nil {
 		println("Error decoding standings response: ", err.Error())
 		return StandingsRestObject{}, err
@@ -160,8 +245,7 @@ func (m *MLBClient) GetMLBDivisions(ctx context.Context) (DivisionsRestObject, e
 		println("Error getting divisions: ", err.Error())
 		return DivisionsRestObject{}, err
 	}
-	var divisions DivisionsRestObject
-	err = json.NewDecoder(resp.Body).Decode(&divisions)
+	divisions, err := decodeJSON[DivisionsRestObject](resp)
 	if err != nil {
 		println("Error decoding divisions response: ", err.Error())
 		return DivisionsRestObject{}, err
@@ -182,8 +266,7 @@ func (m *MLBClient) GetMLBLeague(ctx context.Context) (LeagueResponseObject, err
 		return LeagueResponseObject{}, err
 	}
 
-	var leagues LeagueResponseObject
-	err = json.NewDecoder(resp.Body).Decode(&leagues)
+	leagues, err := decodeJSON[LeagueResponseObject](resp)
 	if err != nil {
 		println("Error decoding leagues response: ", err.Error())
 		return LeagueResponseObject{}, err
@@ -199,8 +282,7 @@ func (m *MLBClient) GetLiveGame(ctx context.Context, gamePk int32) (BaseballGame
 		return BaseballGameRestObject{}, err
 	}
 
-	var liveGame BaseballGameRestObject
-	err = json.NewDecoder(resp.Body).Decode(&liveGame)
+	liveGame, err := decodeJSON[BaseballGameRestObject](resp)
 	if err != nil {
 		println("Error decoding live game response: ", err.Error())
 		return BaseballGameRestObject{}, err
@@ -229,8 +311,7 @@ func (m *MLBClient) GetLiveGameDiffPatch(ctx context.Context, gamePk int32, star
 		return BaseballGameRestObject{}, err
 	}
 
-	var liveGamePatch BaseballGameRestObject
-	err = json.NewDecoder(resp.Body).Decode(&liveGamePatch)
+	liveGamePatch, err := decodeJSON[BaseballGameRestObject](resp)
 	if err != nil {
 		println("Error decoding live game diff patch response: ", err.Error())
 		return BaseballGameRestObject{}, err
@@ -247,8 +328,7 @@ func (m *MLBClient) GetMLBGameTypes(ctx context.Context) ([]GameTypeEnum, error)
 		return nil, err
 	}
 
-	var gameTypes []GameTypeEnum
-	err = json.NewDecoder(resp.Body).Decode(&gameTypes)
+	gameTypes, err := decodeJSON[[]GameTypeEnum](resp)
 	if err != nil {
 		println("Error decoding game types response: ", err.Error())
 		return nil, err
@@ -269,24 +349,31 @@ func (m *MLBClient) GetMLBPLayerStats(ctx context.Context, playerID int32) (Play
 		return PlayerStatsResponse{}, err
 	}
 
-	//defer resp.Body.Close()
-	//
-	//bodyBytes, err := io.ReadAll(resp.Body)
-	//if err != nil {
-	//	println("Error reading body: %v", err)
-	//}
-	//
-	//// 4. Convert the byte slice to a string
-	//bodyString := string(bodyBytes)
-	//
-	//// Print the resulting JSON string
-	//fmt.Println(bodyString)
-
-	var stats PlayerStatsResponse
-	err = json.NewDecoder(resp.Body).Decode(&stats)
+	stats, err := decodeJSON[PlayerStatsResponse](resp)
 	if err != nil {
 		println("Error decoding player stats response: ", err.Error())
 		return PlayerStatsResponse{}, err
 	}
 	return stats, nil
+}
+
+func (m *MLBClient) GetMLBPlayer(ctx context.Context, playerID int32) (BaseballPersonRestObject, error) {
+	resp, err := m.client.Person(ctx, playerID, &PersonParams{})
+	if err != nil {
+		println("Error getting player data: ", err.Error())
+		return BaseballPersonRestObject{}, err
+	}
+
+	people, err := decodeJSON[PeopleRestObject](resp)
+	if err != nil {
+		println("Error decoding player response: ", err.Error())
+		return BaseballPersonRestObject{}, err
+	}
+
+	player, err := firstPerson(people, playerID)
+	if err != nil {
+		return BaseballPersonRestObject{}, err
+	}
+
+	return player, nil
 }

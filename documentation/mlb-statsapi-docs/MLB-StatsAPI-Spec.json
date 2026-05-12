@@ -27861,7 +27861,7 @@
             "$ref": "#/components/schemas/BaseballPersonRestObject"
           },
           "position": {
-            "$ref": "#/components/schemas/PositionRestObject"
+            "$ref": "#/components/schemas/BaseballPosition"
           },
           "credit": {
             "type": "string"
