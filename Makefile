@@ -10,17 +10,16 @@ help:
 	@echo "  test      Run Go tests/build checks"
 
 sim:
-	go run main.go --simulate
+	go run .
 
 sim-term:
-	go run main.go --simulate-terminal
+	go run ./cmd/termsim
 
 pi-run:
-	sudo -E go run main.go --led-row=64 --led-cols=64 --led-gpio-mapping=adafruit-hat
+	sudo -E go run -tags pi .
 
 fmt:
 	go fmt ./...
 
 test:
 	go test ./...
-

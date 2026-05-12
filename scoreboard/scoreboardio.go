@@ -1,7 +1,6 @@
 package scoreboard
 
 import (
-	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -23,6 +22,7 @@ type ScoreboardInformation struct {
 	NationalLeagueStandings *statsapi.StandingsRestObject
 	AmericanLeagueStandings *statsapi.StandingsRestObject
 	GameTypeMap             map[string]string
+	PlayerLookupMap         *map[int32]statsapi.BaseballPersonRestObject
 }
 
 type ScoreboardDivision struct {
@@ -174,6 +174,30 @@ func BuildGameTypeLookup(gametypes []statsapi.GameTypeEnum) map[string]string {
 	return lookup
 }
 
+func BuildPlayerLookup(players []statsapi.BaseballPersonRestObject) map[int32]statsapi.BaseballPersonRestObject {
+	lookup := make(map[int32]statsapi.BaseballPersonRestObject, len(players))
+	for _, player := range players {
+		if player.Id == nil {
+			continue
+		}
+		lookup[*player.Id] = player
+	}
+	return lookup
+}
+
+func playerLookup(info ScoreboardInformation, playerID *int32) *statsapi.BaseballPersonRestObject {
+	if playerID == nil || info.PlayerLookupMap == nil {
+		return nil
+	}
+
+	player, ok := (*info.PlayerLookupMap)[*playerID]
+	if !ok {
+		return nil
+	}
+
+	return &player
+}
+
 func IsDataLoaded(info ScoreboardInformation) bool {
 	// Check if basic data is loaded
 	hasBasicData := info.AmericanLeagueStandings != nil || info.NationalLeagueStandings != nil || info.TeamSchedule != nil
@@ -236,40 +260,22 @@ func FindLastCompletedGame(info ScoreboardInformation) (*statsapi.BaseballSchedu
 
 // DisplayLoop now handles only timing/pause control.
 // Rendering is performed by each display function before entering the loop.
-func DisplayLoop(ctx context.Context, condCheckInterval time.Duration, displayDuration time.Duration, controller *DisplayController) {
+func DisplayLoop(condCheckInterval time.Duration, displayDuration time.Duration, controller *DisplayController) {
 	fmt.Println("DisplayLoop")
 
 	ticker := time.NewTicker(condCheckInterval)
-	done := time.NewTimer(displayDuration)
-	defer done.Stop()
-
-	go func() {
-		<-ctx.Done()
-		controller.Mu.Lock()
-		controller.Cond.Broadcast()
-		controller.Mu.Unlock()
-	}()
+	done := time.After(displayDuration)
 
 	count := 0
 	for {
 		select {
-		case <-ctx.Done():
-			ticker.Stop()
-			fmt.Print("\n")
-			return
-		case <-done.C:
+		case <-done:
 			ticker.Stop()
 			fmt.Print("\n")
 			return
 		case <-ticker.C:
 			controller.Mu.Lock()
 			for controller.Paused {
-				if ctx.Err() != nil {
-					controller.Mu.Unlock()
-					ticker.Stop()
-					fmt.Print("\n")
-					return
-				}
 				fmt.Println("Paused, waiting...")
 				controller.Cond.Wait()
 			}
@@ -338,26 +344,34 @@ func previousCompletedGame(info ScoreboardInformation) (*statsapi.BaseballSchedu
 	return nil, nil
 }
 
-func findPitcherDecision(game statsapi.BaseballGameRestObject, decision PitchingDecision) string {
-	if game.LiveData.Decisions == nil {
+func findPitcherDecision(info ScoreboardInformation, game statsapi.BaseballGameRestObject, decision PitchingDecision) string {
+	if game.LiveData == nil || game.LiveData.Decisions == nil {
 		return "TBD"
 	}
 
+	var pitcher *statsapi.BaseballPersonRestObject
 	switch decision {
 	case PitchingDecisionWin:
-		if game.LiveData.Decisions.Winner != nil {
-			return *game.LiveData.Decisions.Winner.LastName
-		}
+		pitcher = game.LiveData.Decisions.Winner
 	case PitchingDecisionLoss:
-		if game.LiveData.Decisions.Loser != nil {
-			return *game.LiveData.Decisions.Loser.LastName
-		}
+		pitcher = game.LiveData.Decisions.Loser
 	case PitchingDecisionSave:
-		if game.LiveData.Decisions.Save != nil {
-			return *game.LiveData.Decisions.Save.LastName
-		}
+		pitcher = game.LiveData.Decisions.Save
 	default:
 	}
+
+	if pitcher == nil {
+		return "TBD"
+	}
+
+	if foundPitcher := playerLookup(info, pitcher.Id); foundPitcher != nil && foundPitcher.LastName != nil && *foundPitcher.LastName != "" {
+		return *foundPitcher.LastName
+	}
+
+	if pitcher.LastName != nil && *pitcher.LastName != "" {
+		return *pitcher.LastName
+	}
+
 	return "TBD"
 }
 
@@ -770,17 +784,21 @@ func getGameTypeFromLookup(lookup string) string {
 	}
 }
 
-func getScoreboardLiveGameBatter(batterStats statsapi.PlayerStatsResponse, liveGame statsapi.BaseballGameRestObject, gameInfo ScoreboardLiveGame) ScoreboardLiveGameBatter {
+func getScoreboardLiveGameBatter(info ScoreboardInformation, batterStats statsapi.PlayerStatsResponse, liveGame statsapi.BaseballGameRestObject, gameInfo ScoreboardLiveGame) ScoreboardLiveGameBatter {
 	var fullName, lastName, currentBatterPosition, battingAverage, ops, summary string
 	var hits, atBats int32
 
 	if liveGame.LiveData != nil && liveGame.LiveData.Plays != nil && liveGame.LiveData.Plays.CurrentPlay != nil && liveGame.LiveData.Plays.CurrentPlay.Matchup != nil && liveGame.LiveData.Plays.CurrentPlay.Matchup.Batter != nil {
 		batter := liveGame.LiveData.Plays.CurrentPlay.Matchup.Batter
-		if batter.FullName != nil {
-			fullName = *batter.FullName
+		batterSource := batter
+		if foundBatter := playerLookup(info, batter.Id); foundBatter != nil {
+			batterSource = foundBatter
 		}
-		if batter.LastName != nil {
-			lastName = *batter.LastName
+		if batterSource.FullName != nil {
+			fullName = *batterSource.FullName
+		}
+		if batterSource.LastName != nil {
+			lastName = *batterSource.LastName
 		}
 
 		if liveGame.LiveData.Boxscore != nil && liveGame.LiveData.Boxscore.Teams != nil {
@@ -854,19 +872,25 @@ func getScoreboardLiveGameBatter(batterStats statsapi.PlayerStatsResponse, liveG
 	}
 }
 
-func getScoreboardLiveGamePitcher(pitcherStats statsapi.PlayerStatsResponse, liveGame statsapi.BaseballGameRestObject) ScoreboardPitcher {
+func getScoreboardLiveGamePitcher(info ScoreboardInformation, pitcherStats statsapi.PlayerStatsResponse, liveGame statsapi.BaseballGameRestObject) ScoreboardPitcher {
 	var fullName, lastName, throwingHand string
 
 	if liveGame.LiveData != nil && liveGame.LiveData.Plays != nil && liveGame.LiveData.Plays.CurrentPlay != nil && liveGame.LiveData.Plays.CurrentPlay.Matchup != nil {
 		if liveGame.LiveData.Plays.CurrentPlay.Matchup.Pitcher != nil {
-			if liveGame.LiveData.Plays.CurrentPlay.Matchup.Pitcher.FullName != nil {
-				fullName = *liveGame.LiveData.Plays.CurrentPlay.Matchup.Pitcher.FullName
+			pitcher := liveGame.LiveData.Plays.CurrentPlay.Matchup.Pitcher
+			pitcherSource := pitcher
+			if foundPitcher := playerLookup(info, pitcher.Id); foundPitcher != nil {
+				pitcherSource = foundPitcher
 			}
-			if liveGame.LiveData.Plays.CurrentPlay.Matchup.Pitcher.LastName != nil {
-				lastName = *liveGame.LiveData.Plays.CurrentPlay.Matchup.Pitcher.LastName
+			if pitcherSource.FullName != nil {
+				fullName = *pitcherSource.FullName
 			}
+			if pitcherSource.LastName != nil {
+				lastName = *pitcherSource.LastName
+			}
+			throwingHand = getPitchHandFromPerson(pitcherSource)
 		}
-		if liveGame.LiveData.Plays.CurrentPlay.Matchup.PitchHand != nil && liveGame.LiveData.Plays.CurrentPlay.Matchup.PitchHand.Code != nil {
+		if throwingHand == "" && liveGame.LiveData.Plays.CurrentPlay.Matchup.PitchHand != nil && liveGame.LiveData.Plays.CurrentPlay.Matchup.PitchHand.Code != nil {
 			throwingHand = *liveGame.LiveData.Plays.CurrentPlay.Matchup.PitchHand.Code
 		}
 	}

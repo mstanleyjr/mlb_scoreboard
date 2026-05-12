@@ -174,7 +174,7 @@ func TestScorekeepingLastPlayNotation(t *testing.T) {
 
 func TestGetScoreboardLiveGameBatter_NilSafe(t *testing.T) {
 	assertNoPanic(t, "empty game", func() {
-		got := getScoreboardLiveGameBatter(statsapi.PlayerStatsResponse{}, statsapi.BaseballGameRestObject{}, ScoreboardLiveGame{})
+		got := getScoreboardLiveGameBatter(ScoreboardInformation{}, statsapi.PlayerStatsResponse{}, statsapi.BaseballGameRestObject{}, ScoreboardLiveGame{})
 		if got != (ScoreboardLiveGameBatter{}) {
 			t.Fatalf("expected zero value batter, got %+v", got)
 		}
@@ -194,16 +194,42 @@ func TestGetScoreboardLiveGameBatter_NilSafe(t *testing.T) {
 				},
 			},
 		}
-		got := getScoreboardLiveGameBatter(statsapi.PlayerStatsResponse{}, game, ScoreboardLiveGame{HalfInning: "top", CurrentBatterId: 700337})
+		got := getScoreboardLiveGameBatter(ScoreboardInformation{}, statsapi.PlayerStatsResponse{}, game, ScoreboardLiveGame{HalfInning: "top", CurrentBatterId: 700337})
 		if got.FullName != "Edgar Quero" || got.LastName != "" {
 			t.Fatalf("expected full name only with empty last name, got %+v", got)
+		}
+	})
+
+	assertNoPanic(t, "lookup-backed batter", func() {
+		info := ScoreboardInformation{
+			PlayerLookupMap: &map[int32]statsapi.BaseballPersonRestObject{
+				700337: {Id: int32Ptr(700337), FullName: ptr("Edgar Quero"), LastName: ptr("Quero")},
+			},
+		}
+		game := statsapi.BaseballGameRestObject{
+			LiveData: &statsapi.BaseballGameLiveDataRestObject{
+				Plays: &statsapi.BaseballPlayByPlayRestObject{
+					CurrentPlay: &statsapi.BaseballPlayRestObject{
+						Matchup: &statsapi.Matchup{
+							Batter: &statsapi.BaseballPersonRestObject{
+								Id:       int32Ptr(700337),
+								FullName: ptr("Edgar Quero"),
+							},
+						},
+					},
+				},
+			},
+		}
+		got := getScoreboardLiveGameBatter(info, statsapi.PlayerStatsResponse{}, game, ScoreboardLiveGame{HalfInning: "top", CurrentBatterId: 700337})
+		if got.FullName != "Edgar Quero" || got.LastName != "Quero" {
+			t.Fatalf("expected lookup last name Quero, got %+v", got)
 		}
 	})
 }
 
 func TestGetScoreboardLiveGamePitcher_NilSafe(t *testing.T) {
 	assertNoPanic(t, "empty game", func() {
-		got := getScoreboardLiveGamePitcher(statsapi.PlayerStatsResponse{}, statsapi.BaseballGameRestObject{})
+		got := getScoreboardLiveGamePitcher(ScoreboardInformation{}, statsapi.PlayerStatsResponse{}, statsapi.BaseballGameRestObject{})
 		if got.FullName != "" || got.LastName != "" || got.Hand != "" || got.ERA != "0.00" || got.Wins != 0 || got.Losses != 0 || got.Saves != 0 {
 			t.Fatalf("expected default pitcher values, got %+v", got)
 		}
@@ -223,11 +249,98 @@ func TestGetScoreboardLiveGamePitcher_NilSafe(t *testing.T) {
 				},
 			},
 		}
-		got := getScoreboardLiveGamePitcher(statsapi.PlayerStatsResponse{}, game)
+		got := getScoreboardLiveGamePitcher(ScoreboardInformation{}, statsapi.PlayerStatsResponse{}, game)
 		if got.FullName != "Brad Lord" || got.LastName != "" {
 			t.Fatalf("expected full name only with empty last name, got %+v", got)
 		}
 	})
+
+	assertNoPanic(t, "lookup-backed pitcher", func() {
+		info := ScoreboardInformation{
+			PlayerLookupMap: &map[int32]statsapi.BaseballPersonRestObject{
+				701643: {Id: int32Ptr(701643), FullName: ptr("Brad Lord"), LastName: ptr("Lord")},
+			},
+		}
+		game := statsapi.BaseballGameRestObject{
+			LiveData: &statsapi.BaseballGameLiveDataRestObject{
+				Plays: &statsapi.BaseballPlayByPlayRestObject{
+					CurrentPlay: &statsapi.BaseballPlayRestObject{
+						Matchup: &statsapi.Matchup{
+							Pitcher: &statsapi.BaseballPersonRestObject{
+								Id:       int32Ptr(701643),
+								FullName: ptr("Brad Lord"),
+							},
+						},
+					},
+				},
+			},
+		}
+		got := getScoreboardLiveGamePitcher(info, statsapi.PlayerStatsResponse{}, game)
+		if got.FullName != "Brad Lord" || got.LastName != "Lord" {
+			t.Fatalf("expected lookup last name Lord, got %+v", got)
+		}
+	})
+}
+
+func TestFindPitcherDecision_NilSafe(t *testing.T) {
+	assertNoPanic(t, "missing decision names", func() {
+		game := statsapi.BaseballGameRestObject{LiveData: &statsapi.BaseballGameLiveDataRestObject{Decisions: &statsapi.BaseballDecisionRestObject{}}}
+		if got := findPitcherDecision(ScoreboardInformation{}, game, PitchingDecisionWin); got != "TBD" {
+			t.Fatalf("expected TBD, got %q", got)
+		}
+	})
+
+	assertNoPanic(t, "lookup-backed winner", func() {
+		info := ScoreboardInformation{
+			PlayerLookupMap: &map[int32]statsapi.BaseballPersonRestObject{
+				701643: {Id: int32Ptr(701643), LastName: ptr("Lord")},
+			},
+		}
+		game := statsapi.BaseballGameRestObject{
+			LiveData: &statsapi.BaseballGameLiveDataRestObject{
+				Decisions: &statsapi.BaseballDecisionRestObject{
+					Winner: &statsapi.BaseballPersonRestObject{Id: int32Ptr(701643)},
+				},
+			},
+		}
+		if got := findPitcherDecision(info, game, PitchingDecisionWin); got != "Lord" {
+			t.Fatalf("expected lookup-backed last name Lord, got %q", got)
+		}
+	})
+
+	assertNoPanic(t, "payload last name fallback", func() {
+		game := statsapi.BaseballGameRestObject{
+			LiveData: &statsapi.BaseballGameLiveDataRestObject{
+				Decisions: &statsapi.BaseballDecisionRestObject{
+					Loser: &statsapi.BaseballPersonRestObject{LastName: ptr("Parker")},
+				},
+			},
+		}
+		if got := findPitcherDecision(ScoreboardInformation{}, game, PitchingDecisionLoss); got != "Parker" {
+			t.Fatalf("expected payload last name Parker, got %q", got)
+		}
+	})
+}
+
+func TestPlayerLookup(t *testing.T) {
+	info := ScoreboardInformation{
+		PlayerLookupMap: &map[int32]statsapi.BaseballPersonRestObject{
+			123: {Id: int32Ptr(123), FullName: ptr("Brad Lord")},
+		},
+	}
+
+	got := playerLookup(info, int32Ptr(123))
+	if got == nil || got.Id == nil || *got.Id != 123 {
+		t.Fatalf("expected player 123, got %+v", got)
+	}
+
+	if got := playerLookup(info, int32Ptr(456)); got != nil {
+		t.Fatalf("expected nil for missing player, got %+v", got)
+	}
+
+	if got := playerLookup(info, nil); got != nil {
+		t.Fatalf("expected nil for nil player id, got %+v", got)
+	}
 }
 
 func int32Ptr(v int32) *int32 { return &v }

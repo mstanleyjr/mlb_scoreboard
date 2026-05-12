@@ -5,11 +5,10 @@ import (
 	"image/color"
 
 	"github.com/mstanleyjr/mlb_scoreboard/scoreboard"
-	rgbmatrix "github.com/tfk1410/go-rpi-rgb-led-matrix"
 )
 
 // EXAMPLE 1: Using custom bitmap glyphs
-func ExampleCustomGlyphs(c *rgbmatrix.Canvas) {
+func ExampleCustomGlyphs(c scoreboard.PixelCanvas) {
 	// Create a glyph builder with 5x7 characters
 	gb := scoreboard.NewGlyphBuilder(5, 7)
 
@@ -39,7 +38,7 @@ func ExampleCustomGlyphs(c *rgbmatrix.Canvas) {
 }
 
 // EXAMPLE 2: Using TrueType fonts
-func ExampleTrueTypeFont(c *rgbmatrix.Canvas) {
+func ExampleTrueTypeFont(c scoreboard.PixelCanvas) {
 	// Load a TrueType font from disk
 	// On Pi: /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
 	// On Mac: /Library/Fonts/Arial.ttf
@@ -55,7 +54,7 @@ func ExampleTrueTypeFont(c *rgbmatrix.Canvas) {
 }
 
 // EXAMPLE 3: Creating a scoreboard-specific font
-func ExampleScoreboardFont(c *rgbmatrix.Canvas) {
+func ExampleScoreboardFont(c scoreboard.PixelCanvas) {
 	// Use the pre-built scoreboard font
 	scoreboardFont := scoreboard.NewScoreboardFont()
 

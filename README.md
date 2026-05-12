@@ -13,29 +13,22 @@ make test
 ```
 
 ## Local 64x64 Simulation
-Run locally without a Pi by enabling the built-in matrix emulator:
+Run the default local terminal simulator:
 
 ```bash
-go run main.go --simulate
+go run .
 ```
 
 Terminal-only simulation mode (no desktop window):
 
 ```bash
-go run main.go --simulate-terminal
-```
-
-You can also use env vars instead of flags:
-
-```bash
-MLB_SCOREBOARD_SIMULATE=1 go run main.go
-MLB_SCOREBOARD_SIMULATE_TERMINAL=1 go run main.go
+go run ./cmd/termsim
 ```
 
 ## Raspberry Pi Hardware Run
 
 ```bash
-sudo -E go run main.go --led-row=64 --led-cols=64 --led-gpio-mapping=adafruit-hat
+sudo -E go run -tags pi .
 ```
 
 ## Custom Terminal Matrix Simulator (No rgbmatrix emulator)

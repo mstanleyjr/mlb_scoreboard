@@ -146,7 +146,7 @@ func DivisionStandingsDisplay(ctx context.Context, info ScoreboardInformation, l
 	CurrentDisplayData = displayInfo
 	DisplayMutex.Unlock()
 
-	DisplayLoop(ctx, 1*time.Second, time.Second*8, controller)
+	DisplayLoop(1*time.Second, time.Second*8, controller)
 	fmt.Println("Finished displaying division standings.")
 }
 
@@ -195,9 +195,8 @@ func NextMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 		awayLivePitcher = foundNextGame.GameData.ProbablePitchers.Away
 	}
 
-	homePitcher := buildProbablePitcher(ctx, client, "home", homeLivePitcher, homeSchedule.ProbablePitcher)
-	awayPitcher := buildProbablePitcher(ctx, client, "away", awayLivePitcher, awaySchedule.ProbablePitcher)
-	fmt.Printf("awayPticher %+v\n\n", awayPitcher)
+	homePitcher := buildProbablePitcher(ctx, info, client, "home", homeLivePitcher, homeSchedule.ProbablePitcher)
+	awayPitcher := buildProbablePitcher(ctx, info, client, "away", awayLivePitcher, awaySchedule.ProbablePitcher)
 
 	homeWins, homeLosses := resolveRecord(homeLive.Record, homeSchedule.LeagueRecord)
 	awayWins, awayLosses := resolveRecord(awayLive.Record, awaySchedule.LeagueRecord)
@@ -255,7 +254,7 @@ func NextMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 	CurrentDisplayData = displayInfo
 	DisplayMutex.Unlock()
 
-	DisplayLoop(ctx, 1*time.Second, time.Second*8, controller)
+	DisplayLoop(1*time.Second, time.Second*8, controller)
 	fmt.Println("Finished displaying next matchup.")
 }
 
@@ -307,7 +306,7 @@ func resolveRecord(liveRecord *statsapi.TeamStandingsRecordRestObject, scheduleR
 	return wins, losses
 }
 
-func buildProbablePitcher(ctx context.Context, client *statsapi.MLBClient, side string, livePitcher *statsapi.BaseballPersonRestObject, schedulePitcher *statsapi.BaseballPersonRestObject) ScoreboardPitcher {
+func buildProbablePitcher(ctx context.Context, info ScoreboardInformation, client *statsapi.MLBClient, side string, livePitcher *statsapi.BaseballPersonRestObject, schedulePitcher *statsapi.BaseballPersonRestObject) ScoreboardPitcher {
 	pitcher := livePitcher
 	if pitcher == nil {
 		pitcher = schedulePitcher
@@ -316,27 +315,29 @@ func buildProbablePitcher(ctx context.Context, client *statsapi.MLBClient, side 
 		return ScoreboardPitcher{FullName: "TBD"}
 	}
 
-	pitcherName := chooseString(pitcher.FullName, nil, "TBD")
-	pitchHand := getPitchHandFromPerson(pitcher)
-	if pitchHand == "" && pitcher.Id != nil {
-		if fullPitcher, err := client.GetMLBPlayer(ctx, *pitcher.Id); err == nil {
-			pitchHand = getPitchHandFromPerson(&fullPitcher)
-		}
+	pitcherSource := pitcher
+	if foundPitcher := playerLookup(info, pitcher.Id); foundPitcher != nil {
+		pitcherSource = foundPitcher
 	}
 
+	pitcherName := chooseString(pitcherSource.FullName, pitcher.FullName, "TBD")
+	pitcherLastName := chooseString(pitcherSource.LastName, pitcher.LastName, "")
+	pitchHand := getPitchHandFromPerson(pitcherSource)
+
 	if pitcher.Id == nil {
-		return ScoreboardPitcher{FullName: pitcherName, Hand: pitchHand}
+		return ScoreboardPitcher{FullName: pitcherName, LastName: pitcherLastName, Hand: pitchHand}
 	}
 
 	pitcherStats, err := client.GetMLBPLayerStats(ctx, *pitcher.Id)
 	if err != nil {
 		println("Error getting "+side+" pitcher stats: ", err.Error())
-		return ScoreboardPitcher{FullName: pitcherName, Hand: pitchHand}
+		return ScoreboardPitcher{FullName: pitcherName, LastName: pitcherLastName, Hand: pitchHand}
 	}
 
 	era, wins, losses, saves := GetScoreboardPitcherStats(pitcherStats)
 	return ScoreboardPitcher{
 		FullName: pitcherName,
+		LastName: pitcherLastName,
 		Hand:     pitchHand,
 		ERA:      era,
 		Wins:     wins,
@@ -389,9 +390,9 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 		finalInning = int(*game.LiveData.Linescore.CurrentInning)
 	}
 
-	winner := findPitcherDecision(game, PitchingDecisionWin)
-	loser := findPitcherDecision(game, PitchingDecisionLoss)
-	save := findPitcherDecision(game, PitchingDecisionSave)
+	winner := findPitcherDecision(info, game, PitchingDecisionWin)
+	loser := findPitcherDecision(info, game, PitchingDecisionLoss)
+	save := findPitcherDecision(info, game, PitchingDecisionSave)
 
 	displayInfo := ScoreboardLastMatchup{
 		AwayTeam: ScoreboardLastMatchupTeam{
@@ -418,11 +419,11 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 	CurrentDisplayData = displayInfo
 	DisplayMutex.Unlock()
 
-	DisplayLoop(ctx, 1*time.Second, time.Second*8, controller)
+	DisplayLoop(1*time.Second, time.Second*8, controller)
 	fmt.Println("Finished displaying last completed matchup.")
 }
 
-func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRestObject, m *statsapi.MLBClient, controller *DisplayController) {
+func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRestObject, info ScoreboardInformation, m *statsapi.MLBClient, controller *DisplayController) {
 	teams := *game.Teams
 	homeTeam := teams["home"].Team.Name
 	awayTeam := teams["away"].Team.Name
@@ -472,7 +473,7 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 					println("Error getting batter stats: ", err.Error())
 				}
 				currentBatterId = gameInfo.CurrentBatterId
-				batter := getScoreboardLiveGameBatter(batterStats, liveGame, gameInfo)
+				batter := getScoreboardLiveGameBatter(info, batterStats, liveGame, gameInfo)
 
 				fmt.Printf("Batter stats: %+v\n", batter)
 				gameInfo.CurrentBatter = batter
@@ -481,14 +482,14 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 				if err != nil {
 					println("Error getting pitcher stats: ", err.Error())
 				}
-				pitcher := getScoreboardLiveGamePitcher(pitcherStats, liveGame)
+				pitcher := getScoreboardLiveGamePitcher(info, pitcherStats, liveGame)
 				fmt.Printf("Pitcher stats: %+v\n", pitcher)
 				gameInfo.CurrentPitcher = pitcher
 			}
 		}
 
 		// Keep display state updated; renderer loop draws from CurrentDisplayData.
-		DisplayLoop(ctx, 1*time.Second, callInterval, controller)
+		DisplayLoop(1*time.Second, callInterval, controller)
 
 		latestInfo, err := m.GetLiveGame(ctx, *game.GamePk)
 		if err != nil {
@@ -526,7 +527,7 @@ func LiveLookInDisplay(ctx context.Context, info ScoreboardInformation, m *stats
 			if err != nil {
 				println("Error getting batter stats: ", err.Error())
 			}
-			batter := getScoreboardLiveGameBatter(batterStats, liveGame, gameInfo)
+			batter := getScoreboardLiveGameBatter(info, batterStats, liveGame, gameInfo)
 
 			fmt.Printf("Batter stats: %+v\n", batter)
 			gameInfo.CurrentBatter = batter
@@ -535,7 +536,7 @@ func LiveLookInDisplay(ctx context.Context, info ScoreboardInformation, m *stats
 			if err != nil {
 				println("Error getting pitcher stats: ", err.Error())
 			}
-			pitcher := getScoreboardLiveGamePitcher(pitcherStats, liveGame)
+			pitcher := getScoreboardLiveGamePitcher(info, pitcherStats, liveGame)
 			fmt.Printf("Pitcher stats: %+v\n", pitcher)
 			gameInfo.CurrentPitcher = pitcher
 		}
@@ -547,7 +548,7 @@ func LiveLookInDisplay(ctx context.Context, info ScoreboardInformation, m *stats
 		CurrentDisplayData = gameInfo
 		DisplayMutex.Unlock()
 
-		DisplayLoop(ctx, 1*time.Second, callInterval, controller)
+		DisplayLoop(1*time.Second, callInterval, controller)
 	}
 
 	println("Finishing live look-in display")
