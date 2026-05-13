@@ -26,8 +26,13 @@ type ScoreboardInformation struct {
 }
 
 type ScoreboardDivision struct {
-	LeagueName string
-	Teams      []ScoreboardDivisionTeam
+	Sections     []ScoreboardStandingsSection
+	ScrollOffset int
+}
+
+type ScoreboardStandingsSection struct {
+	Title string
+	Teams []ScoreboardDivisionTeam
 }
 
 type ScoreboardDivisionTeam struct {

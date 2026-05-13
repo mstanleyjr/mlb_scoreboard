@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -62,93 +63,194 @@ func LoadingScreen() {
 	DisplayMutex.Unlock()
 }
 
-func DivisionStandingsDisplay(ctx context.Context, info ScoreboardInformation, leagueID int32, divisionIndex int, controller *DisplayController) {
-	leagueMap := info.LeagueMap
+func StandingsRollupDisplay(ctx context.Context, info ScoreboardInformation, controller *DisplayController, maxDuration time.Duration) {
+	_ = ctx
 
-	// Safety check: ensure league exists
-	league, exists := leagueMap[leagueID]
-	if !exists {
-		fmt.Println("League not found:", leagueID)
+	displayInfo := buildStandingsRollup(info)
+	if len(displayInfo.Sections) == 0 {
+		fmt.Println("No standings sections available for rollup.")
 		return
 	}
 
-	// Safety check: ensure league has name
-	if league.League.Name == nil {
-		fmt.Println("League name is nil")
-		return
-	}
-
-	// Safety check: ensure divisions exist and divisionIndex is valid
-	if league.Divisions == nil || divisionIndex >= len(league.Divisions) {
-		fmt.Println("Divisions not loaded or invalid divisionIndex:", divisionIndex)
-		return
-	}
-
-	division := league.Divisions[divisionIndex]
-	if division.Name == nil || division.Id == nil {
-		fmt.Println("Division data incomplete")
-		return
-	}
-
-	fmt.Println("Displaying standings for League: ", *league.League.Name, " ; Division : ", *division.Name)
-
-	divisionID := division.Id
-	leagueStandingsByDivision := info.Standings[leagueID].Records
-
-	// Safety check: ensure standings data exists
-	if leagueStandingsByDivision == nil {
-		fmt.Println("Standings data not loaded for league:", leagueID)
-		return
-	}
-
-	var standings *[]statsapi.TeamStandingsRecordRestObject
-	for _, divisionRecords := range *leagueStandingsByDivision {
-		foundId := divisionRecords.Division.Id
-		if foundId != nil && *foundId == *divisionID {
-			standings = divisionRecords.TeamRecords
-			break
-		}
-	}
-
-	if standings == nil {
-		fmt.Println("No standings for division: ", *divisionID)
-		return
-	}
-
-	var divisionTeams []ScoreboardDivisionTeam
-	for _, standing := range *standings {
-		rank, err := strconv.Atoi(*standing.DivisionRank)
-		if err != nil {
-			println("Error converting rank")
-		}
-
-		divisionTeams = append(divisionTeams, ScoreboardDivisionTeam{
-			Name:      *standing.Team.Name,
-			ShortName: chooseString(standing.Team.TeamName, standing.Team.ClubName, chooseString(standing.Team.Abbreviation, standing.Team.Name, "")),
-			Rank:      rank,
-			Record: ScoreboardWinLossRecord{
-				Wins:   int(*standing.Wins),
-				Losses: int(*standing.Losses),
-			},
-			GamesBack: *standing.DivisionGamesBack,
-		})
-	}
-
-	displayInfo := ScoreboardDivision{
-		LeagueName: *division.NameShort,
-		Teams:      divisionTeams,
-	}
-
-	fmt.Printf("displayinfo %+v\n", displayInfo)
-
-	// Publish state so render loop draws this page.
 	DisplayMutex.Lock()
 	CurrentDisplayType = DisplayTypeDivisionStandings
 	CurrentDisplayData = displayInfo
 	DisplayMutex.Unlock()
 
-	DisplayLoop(1*time.Second, time.Second*8, controller)
-	fmt.Println("Finished displaying division standings.")
+	scrollDivisionStandings(displayInfo, controller, standingsRollupDuration(displayInfo, maxDuration), 100*time.Millisecond)
+	fmt.Println("Finished displaying standings rollup.")
+}
+
+func buildStandingsRollup(info ScoreboardInformation) ScoreboardDivision {
+	sections := make([]ScoreboardStandingsSection, 0)
+	for _, leagueID := range []int32{AMERICAN_LEAGUE_ID, NATIONAL_LEAGUE_ID} {
+		league, exists := info.LeagueMap[leagueID]
+		if !exists {
+			continue
+		}
+
+		divisions := append([]statsapi.DivisionRestObject(nil), league.Divisions...)
+		sort.SliceStable(divisions, func(i, j int) bool {
+			iTitle := chooseString(divisions[i].NameShort, divisions[i].Name, "")
+			jTitle := chooseString(divisions[j].NameShort, divisions[j].Name, "")
+			return iTitle < jTitle
+		})
+
+		standings, ok := info.Standings[leagueID]
+		if !ok {
+			continue
+		}
+
+		for _, division := range divisions {
+			teams := standingsTeamsForDivision(standings, division)
+			if len(teams) == 0 {
+				continue
+			}
+			sections = append(sections, ScoreboardStandingsSection{
+				Title: chooseString(division.NameShort, division.Name, ""),
+				Teams: teams,
+			})
+		}
+	}
+
+	return ScoreboardDivision{Sections: sections}
+}
+
+func standingsTeamsForDivision(standings statsapi.StandingsRestObject, division statsapi.DivisionRestObject) []ScoreboardDivisionTeam {
+	if standings.Records == nil || division.Id == nil {
+		return nil
+	}
+
+	for _, divisionRecords := range *standings.Records {
+		if divisionRecords.Division.Id == nil || *divisionRecords.Division.Id != *division.Id || divisionRecords.TeamRecords == nil {
+			continue
+		}
+
+		teams := make([]ScoreboardDivisionTeam, 0, len(*divisionRecords.TeamRecords))
+		for _, standing := range *divisionRecords.TeamRecords {
+			if standing.Team == nil || standing.Team.Name == nil {
+				continue
+			}
+
+			rank := 0
+			if standing.DivisionRank != nil {
+				if parsedRank, err := strconv.Atoi(*standing.DivisionRank); err == nil {
+					rank = parsedRank
+				}
+			}
+
+			wins := 0
+			if standing.Wins != nil {
+				wins = int(*standing.Wins)
+			}
+			losses := 0
+			if standing.Losses != nil {
+				losses = int(*standing.Losses)
+			}
+			gamesBack := ""
+			if standing.DivisionGamesBack != nil {
+				gamesBack = *standing.DivisionGamesBack
+			}
+
+			teams = append(teams, ScoreboardDivisionTeam{
+				Name:      *standing.Team.Name,
+				ShortName: chooseString(standing.Team.TeamName, standing.Team.ClubName, chooseString(standing.Team.Abbreviation, standing.Team.Name, "")),
+				Rank:      rank,
+				Record: ScoreboardWinLossRecord{
+					Wins:   wins,
+					Losses: losses,
+				},
+				GamesBack: gamesBack,
+			})
+		}
+
+		sort.SliceStable(teams, func(i, j int) bool {
+			if teams[i].Rank != teams[j].Rank {
+				return teams[i].Rank < teams[j].Rank
+			}
+			return teams[i].Name < teams[j].Name
+		})
+		return teams
+	}
+
+	return nil
+}
+
+func scrollDivisionStandings(displayInfo ScoreboardDivision, controller *DisplayController, displayDuration time.Duration, frameInterval time.Duration) {
+	if frameInterval <= 0 {
+		frameInterval = 100 * time.Millisecond
+	}
+
+	totalFrames := int(displayDuration / frameInterval)
+	if totalFrames < 1 {
+		totalFrames = 1
+	}
+	totalFrames++
+
+	ticker := time.NewTicker(frameInterval)
+	defer ticker.Stop()
+
+	for frame := 0; frame < totalFrames; frame++ {
+		controller.Mu.Lock()
+		for controller.Paused {
+			controller.Cond.Wait()
+		}
+		controller.Mu.Unlock()
+
+		frameDisplay := displayInfo
+		frameDisplay.ScrollOffset = divisionStandingsScrollOffset(displayInfo, frame, totalFrames)
+
+		DisplayMutex.Lock()
+		CurrentDisplayType = DisplayTypeDivisionStandings
+		CurrentDisplayData = frameDisplay
+		DisplayMutex.Unlock()
+
+		if frame == totalFrames-1 {
+			return
+		}
+
+		<-ticker.C
+	}
+}
+
+func divisionStandingsScrollOffset(displayInfo ScoreboardDivision, frameIndex int, totalFrames int) int {
+	maxOffset := divisionStandingsMaxScrollOffset(displayInfo)
+	if maxOffset == 0 || totalFrames <= 1 {
+		return 0
+	}
+
+	holdFrames := totalFrames / 8
+	if holdFrames > 10 {
+		holdFrames = 10
+	}
+	if holdFrames*2 >= totalFrames {
+		holdFrames = (totalFrames - 1) / 2
+	}
+
+	if frameIndex < holdFrames {
+		return 0
+	}
+	if frameIndex >= totalFrames-holdFrames {
+		return maxOffset
+	}
+
+	scrollFrames := totalFrames - (2 * holdFrames)
+	if scrollFrames <= 1 {
+		return maxOffset
+	}
+
+	progressNum := frameIndex - holdFrames
+	progressDen := scrollFrames - 1
+	return (maxOffset*progressNum + progressDen/2) / progressDen
+}
+
+func standingsRollupDuration(displayInfo ScoreboardDivision, maxDuration time.Duration) time.Duration {
+	maxOffset := divisionStandingsMaxScrollOffset(displayInfo)
+	duration := 8*time.Second + time.Duration(maxOffset)*30*time.Millisecond
+	if maxDuration > 0 && duration > maxDuration {
+		return maxDuration
+	}
+	return duration
 }
 
 func NextMatchupDisplay(ctx context.Context, info ScoreboardInformation, client *statsapi.MLBClient, controller *DisplayController) {
