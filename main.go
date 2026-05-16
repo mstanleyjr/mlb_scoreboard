@@ -182,14 +182,10 @@ func DrawLoadingScreen(c *rgbmatrix.Canvas) {
 
 	text := "LOADING"
 	textColor := color.RGBA{R: 255, G: 255, B: 0, A: 255}
-
-	// 3x5 font with 1px gap -> 4px advance per character.
-	textWidth := len(text) * 4
-	startX := (width - textWidth) / 2
-	startY := (height - 5) / 2
-	if startX < 0 {
-		startX = 0
+	startY := (height - 8) / 2
+	if startY < 0 {
+		startY = 0
 	}
 
-	scoreboard.DrawTextSmall(c, startX, startY, text, textColor)
+	scoreboard.DrawText5x8Centered(c, startY, text, textColor)
 }

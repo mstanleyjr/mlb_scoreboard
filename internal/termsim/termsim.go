@@ -186,13 +186,11 @@ func drawRulerY(m *Matrix, y int) {
 func drawLoadingScreen(m *Matrix) {
 	m.Clear(color.RGBA{R: 0, G: 0, B: 0, A: 255})
 	text := "LOADING"
-	textWidth := len(text) * 4
-	x := (matrixW - textWidth) / 2
-	y := (matrixH - 5) / 2
-	if x < 0 {
-		x = 0
+	y := (matrixH - 8) / 2
+	if y < 0 {
+		y = 0
 	}
-	scoreboard.DrawTextSmall(m, x, y, text, color.RGBA{R: 255, G: 255, B: 0, A: 255})
+	scoreboard.DrawText5x8Centered(m, y, text, color.RGBA{R: 255, G: 255, B: 0, A: 255})
 }
 
 func drawTestPattern(m *Matrix) {
