@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -23,6 +24,13 @@ var (
 )
 
 func main() {
+	divisionStandingsMonochrome := flag.Bool("division-standings-monochrome", false, "render division standings text and dividers in light gray")
+	divisionStandingsGreenBackground := flag.Bool("division-standings-green-background", false, "render division standings with a dark scoreboard green background")
+	flag.Parse()
+
+	scoreboard.SetDivisionStandingsMonochrome(*divisionStandingsMonochrome)
+	scoreboard.SetDivisionStandingsGreenBackground(*divisionStandingsGreenBackground)
+
 	fmt.Println("HERE WE GOOOOO")
 
 	// Create RGB LED matrix config

@@ -22,10 +22,12 @@ const (
 )
 
 type Options struct {
-	Empty    string
-	FPS      int
-	ShowGrid bool
-	RulerY   int
+	Empty                       string
+	FPS                         int
+	ShowGrid                    bool
+	RulerY                      int
+	DivisionStandingsMonochrome bool
+	DivisionStandingsGreenBG    bool
 }
 
 type Matrix struct {
@@ -70,16 +72,20 @@ func RunCLI(args []string) error {
 	fps := fs.Int("fps", 3, "terminal refresh rate (frames per second)")
 	showGrid := fs.Bool("grid", false, "overlay an 8x8 debug grid")
 	rulerY := fs.Int("ruler-y", -1, "draw a horizontal ruler at this y (0-63), -1 to disable")
+	divisionStandingsMonochrome := fs.Bool("division-standings-monochrome", false, "render division standings text and dividers in light gray")
+	divisionStandingsGreenBG := fs.Bool("division-standings-green-background", false, "render division standings with a dark scoreboard green background")
 
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
 	return Run(context.Background(), Options{
-		Empty:    *empty,
-		FPS:      *fps,
-		ShowGrid: *showGrid,
-		RulerY:   *rulerY,
+		Empty:                       *empty,
+		FPS:                         *fps,
+		ShowGrid:                    *showGrid,
+		RulerY:                      *rulerY,
+		DivisionStandingsMonochrome: *divisionStandingsMonochrome,
+		DivisionStandingsGreenBG:    *divisionStandingsGreenBG,
 	})
 }
 
@@ -94,6 +100,8 @@ func Run(parent context.Context, opts Options) error {
 	if opts.FPS < 1 {
 		opts.FPS = 1
 	}
+	scoreboard.SetDivisionStandingsMonochrome(opts.DivisionStandingsMonochrome)
+	scoreboard.SetDivisionStandingsGreenBackground(opts.DivisionStandingsGreenBG)
 
 	var wg sync.WaitGroup
 	controller := &scoreboard.DisplayController{}
