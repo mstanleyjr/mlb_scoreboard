@@ -43,7 +43,7 @@ func TestDivisionStandingsColorsGreenBackground(t *testing.T) {
 	})
 
 	palette := divisionStandingsColors()
-	want := color.RGBA{R: 28, G: 84, B: 28, A: 255}
+	want := color.RGBA{R: 22, G: 67, B: 22, A: 255}
 	if palette.background != want {
 		t.Fatalf("expected green background %+v, got %+v", want, palette.background)
 	}
@@ -140,7 +140,7 @@ func TestDrawDivisionStandingsGreenBackgroundUsesConfiguredColor(t *testing.T) {
 
 	DrawDivisionStandings(canvas, ScoreboardDivision{})
 
-	want := color.RGBA{R: 28, G: 84, B: 28, A: 255}
+	want := color.RGBA{R: 22, G: 67, B: 22, A: 255}
 	if got := canvas.pix[0]; got != want {
 		t.Fatalf("expected background pixel to be %+v, got %+v", want, got)
 	}

@@ -11,7 +11,7 @@ import (
 const (
 	divisionStandingsTopPadding    = 2
 	divisionStandingsTitleH        = 8
-	divisionStandingsTitleGap      = 4
+	divisionStandingsTitleGap      = 5
 	divisionStandingsTitleRuleGap  = 1
 	divisionStandingsRowBlockH     = 19
 	divisionStandingsRankX         = 1
@@ -51,7 +51,7 @@ func SetDivisionStandingsGreenBackground(enabled bool) {
 func divisionStandingsColors() divisionStandingsPalette {
 	background := color.RGBA{R: 0, G: 0, B: 0, A: 255}
 	if divisionStandingsGreenBackground {
-		background = color.RGBA{R: 28, G: 84, B: 28, A: 255}
+		background = color.RGBA{R: 22, G: 67, B: 22, A: 255}
 	}
 
 	if divisionStandingsMonochrome {
