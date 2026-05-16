@@ -21,7 +21,7 @@ const (
 	divisionStandingsGBRightX      = 63
 	divisionStandingsSectionGap    = 4
 	divisionStandingsLineGapBottom = 1
-	divisionStandingsMaxGBChars    = 3
+	divisionStandingsMaxGBChars    = 4
 	divisionStandingsMaxTitleChar  = 10
 	divisionStandingsCanvasHeight  = 64
 )

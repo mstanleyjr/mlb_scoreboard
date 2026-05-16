@@ -13,6 +13,12 @@ func TestTrimText5x8ToWidthPreservesWhiteSox(t *testing.T) {
 	}
 }
 
+func TestFormatDivisionGamesBackPreservesHalfGames(t *testing.T) {
+	if got := trimToChars(formatDivisionGamesBack("11.5"), divisionStandingsMaxGBChars); got != "11.5" {
+		t.Fatalf("expected 11.5 games back to be preserved, got %q", got)
+	}
+}
+
 func TestDivisionStandingsColorsMonochrome(t *testing.T) {
 	SetDivisionStandingsMonochrome(true)
 	SetDivisionStandingsGreenBackground(false)

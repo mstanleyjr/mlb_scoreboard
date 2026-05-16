@@ -142,17 +142,16 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 			PlayerLookupMap:         playerFetchRes.Latest(),
 		}
 
-		//activeGame, err := FindActiveTeamGame(scoreboardInfo)
-		//if err != nil {
-		//	println("Error finding active game: ", err.Error())
-		//}
+		activeGame, err := FindActiveTeamGame(scoreboardInfo)
+		if err != nil {
+			println("Error finding active game: ", err.Error())
+		}
 
 		if !IsDataLoaded(scoreboardInfo) {
 			LoadingScreen()
-			//}
-			//else if activeGame != nil {
-			//	fmt.Println("Active game found! Displaying live game data for game ID: ", *activeGame)
-			//	ActiveGameDisplay(ctx, *activeGame, scoreboardInfo, mlbClient, controller)
+		} else if activeGame != nil {
+			fmt.Println("Active game found! Displaying live game data for game ID: ", *activeGame)
+			ActiveGameDisplay(ctx, *activeGame, scoreboardInfo, mlbClient, controller)
 		} else {
 			pages[pageIndex](scoreboardInfo)
 			pageIndex++

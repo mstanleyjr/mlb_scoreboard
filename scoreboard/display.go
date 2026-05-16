@@ -246,7 +246,7 @@ func divisionStandingsScrollOffset(displayInfo ScoreboardDivision, frameIndex in
 
 func standingsRollupDuration(displayInfo ScoreboardDivision, maxDuration time.Duration) time.Duration {
 	maxOffset := divisionStandingsMaxScrollOffset(displayInfo)
-	duration := 8*time.Second + time.Duration(maxOffset)*30*time.Millisecond
+	duration := 12*time.Second + time.Duration(maxOffset)*60*time.Millisecond
 	if maxDuration > 0 && duration > maxDuration {
 		return maxDuration
 	}
