@@ -11,9 +11,9 @@ import (
 const (
 	divisionStandingsTopPadding    = 2
 	divisionStandingsTitleH        = 8
-	divisionStandingsTitleGap      = 6
-	divisionStandingsTitleRuleGap  = 1
-	divisionStandingsRowBlockH     = 24
+	divisionStandingsTitleGap      = 5
+	divisionStandingsTitleRuleGap  = 3
+	divisionStandingsRowBlockH     = 19
 	divisionStandingsRankX         = 1
 	divisionStandingsLineX         = 7
 	divisionStandingsTeamX         = 10
