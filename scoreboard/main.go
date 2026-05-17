@@ -96,17 +96,17 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 
 	pages := make([]func(scoreboardInfo ScoreboardInformation), 0)
 	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-		StandingsRollupDisplay(ctx, scoreboardInfo, controller, standingsRollupMaxDuration)
+		//StandingsRollupDisplay(ctx, scoreboardInfo, controller, standingsRollupMaxDuration)
 	})
 	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
 		NextMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
 	})
-	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-		LastMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
-	})
-	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-		LiveLookInDisplay(ctx, scoreboardInfo, mlbClient, controller)
-	})
+	//pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+	//	LastMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
+	//})
+	//pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+	//	LiveLookInDisplay(ctx, scoreboardInfo, mlbClient, controller)
+	//})
 
 	pageIndex := 0
 
