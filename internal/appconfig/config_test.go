@@ -26,7 +26,6 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 			"green_background": true
 		},
 		"next_matchup": {
-			"version": "v2",
 			"hold_ms": 3000
 		},
 		"termsim": {
@@ -44,7 +43,7 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 	if !cfg.DivisionStandings.Monochrome || !cfg.DivisionStandings.GreenBackground {
 		t.Fatalf("expected division standings config to load, got %+v", cfg.DivisionStandings)
 	}
-	if cfg.NextMatchup.Version != "v2" || cfg.NextMatchup.HoldMS != 3000 || cfg.NextMatchup.SlideMS != 500 {
+	if cfg.NextMatchup.HoldMS != 3000 || cfg.NextMatchup.SlideMS != 500 {
 		t.Fatalf("expected next matchup config to merge with defaults, got %+v", cfg.NextMatchup)
 	}
 	if cfg.Termsim.FPS != 10 {

@@ -353,19 +353,11 @@ func NextMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 	}
 	fmt.Printf("displayinfo %+v\n", displayInfo)
 
-	if nextMatchupVersion == "v2" {
-		playNextMatchupV2(displayInfo, controller, nextMatchupHoldDuration, nextMatchupSlideDuration, 50*time.Millisecond)
-	} else {
-		DisplayMutex.Lock()
-		CurrentDisplayType = DisplayTypeNextMatchup
-		CurrentDisplayData = displayInfo
-		DisplayMutex.Unlock()
-		DisplayLoop(1*time.Second, time.Second*8, controller)
-	}
+	playNextMatchup(displayInfo, controller, nextMatchupHoldDuration, nextMatchupSlideDuration, 50*time.Millisecond)
 	fmt.Println("Finished displaying next matchup.")
 }
 
-func playNextMatchupV2(displayInfo ScoreboardNextMatchup, controller *DisplayController, holdDuration, slideDuration, frameInterval time.Duration) {
+func playNextMatchup(displayInfo ScoreboardNextMatchup, controller *DisplayController, holdDuration, slideDuration, frameInterval time.Duration) {
 	if frameInterval <= 0 {
 		frameInterval = 50 * time.Millisecond
 	}

@@ -29,7 +29,6 @@ type Options struct {
 	RulerY                      int
 	DivisionStandingsMonochrome bool
 	DivisionStandingsGreenBG    bool
-	NextMatchupVersion          string
 	NextMatchupHoldMS           int
 	NextMatchupSlideMS          int
 }
@@ -98,7 +97,6 @@ func RunCLI(args []string) error {
 		RulerY:                      cfg.Termsim.RulerY,
 		DivisionStandingsMonochrome: cfg.DivisionStandings.Monochrome,
 		DivisionStandingsGreenBG:    cfg.DivisionStandings.GreenBackground,
-		NextMatchupVersion:          cfg.NextMatchup.Version,
 		NextMatchupHoldMS:           cfg.NextMatchup.HoldMS,
 		NextMatchupSlideMS:          cfg.NextMatchup.SlideMS,
 	}
@@ -128,7 +126,6 @@ func RunCLI(args []string) error {
 		RulerY:                      opts.RulerY,
 		DivisionStandingsMonochrome: opts.DivisionStandingsMonochrome,
 		DivisionStandingsGreenBG:    opts.DivisionStandingsGreenBG,
-		NextMatchupVersion:          opts.NextMatchupVersion,
 		NextMatchupHoldMS:           opts.NextMatchupHoldMS,
 		NextMatchupSlideMS:          opts.NextMatchupSlideMS,
 	})
@@ -147,7 +144,6 @@ func Run(parent context.Context, opts Options) error {
 	}
 	scoreboard.SetDivisionStandingsMonochrome(opts.DivisionStandingsMonochrome)
 	scoreboard.SetDivisionStandingsGreenBackground(opts.DivisionStandingsGreenBG)
-	scoreboard.SetNextMatchupVersion(opts.NextMatchupVersion)
 	scoreboard.SetNextMatchupTiming(opts.NextMatchupHoldMS, opts.NextMatchupSlideMS)
 
 	var wg sync.WaitGroup

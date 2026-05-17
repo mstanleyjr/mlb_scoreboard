@@ -49,7 +49,6 @@ func main() {
 
 	scoreboard.SetDivisionStandingsMonochrome(monochrome)
 	scoreboard.SetDivisionStandingsGreenBackground(greenBackground)
-	scoreboard.SetNextMatchupVersion(cfg.NextMatchup.Version)
 	scoreboard.SetNextMatchupTiming(cfg.NextMatchup.HoldMS, cfg.NextMatchup.SlideMS)
 
 	fmt.Println("HERE WE GOOOOO")

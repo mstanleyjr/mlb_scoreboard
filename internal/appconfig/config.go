@@ -21,9 +21,8 @@ type DivisionStandingsConfig struct {
 }
 
 type NextMatchupConfig struct {
-	Version string `json:"version"`
-	HoldMS  int    `json:"hold_ms"`
-	SlideMS int    `json:"slide_ms"`
+	HoldMS  int `json:"hold_ms"`
+	SlideMS int `json:"slide_ms"`
 }
 
 type TermsimConfig struct {
@@ -37,7 +36,6 @@ func DefaultConfig() Config {
 	return Config{
 		DivisionStandings: DivisionStandingsConfig{},
 		NextMatchup: NextMatchupConfig{
-			Version: "v1",
 			HoldMS:  2500,
 			SlideMS: 500,
 		},

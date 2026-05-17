@@ -4,7 +4,6 @@
     "green_background": false
   },
   "next_matchup": {
-    "version": "v2",
     "hold_ms": 3000,
     "slide_ms": 600
   },

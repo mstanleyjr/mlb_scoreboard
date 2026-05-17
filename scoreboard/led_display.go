@@ -29,7 +29,6 @@ const (
 
 var divisionStandingsMonochrome bool
 var divisionStandingsGreenBackground bool
-var nextMatchupVersion = "v1"
 var nextMatchupHoldDuration = 2500 * time.Millisecond
 var nextMatchupSlideDuration = 500 * time.Millisecond
 
@@ -50,15 +49,6 @@ func SetDivisionStandingsMonochrome(enabled bool) {
 
 func SetDivisionStandingsGreenBackground(enabled bool) {
 	divisionStandingsGreenBackground = enabled
-}
-
-func SetNextMatchupVersion(version string) {
-	switch strings.ToLower(strings.TrimSpace(version)) {
-	case "v2":
-		nextMatchupVersion = "v2"
-	default:
-		nextMatchupVersion = "v1"
-	}
 }
 
 func SetNextMatchupTiming(holdMS, slideMS int) {
@@ -224,101 +214,19 @@ func divisionStandingsContentHeight(displayInfo ScoreboardDivision) int {
 }
 
 func DrawNextMatchup(c PixelCanvas, m ScoreboardNextMatchup) {
-	if nextMatchupVersion == "v2" {
-		DrawNextMatchupFrame(c, ScoreboardNextMatchupFrame{
-			Matchup:        m,
-			PanelIndex:     0,
-			NextPanelIndex: -1,
-			SlideOffset:    0,
-		})
-		return
-	}
-	drawNextMatchupV1(c, m)
+	DrawNextMatchupFrame(c, ScoreboardNextMatchupFrame{
+		Matchup:        m,
+		PanelIndex:     0,
+		NextPanelIndex: -1,
+		SlideOffset:    0,
+	})
 }
 
 func DrawNextMatchupFrame(c PixelCanvas, frame ScoreboardNextMatchupFrame) {
-	if nextMatchupVersion == "v2" {
-		drawNextMatchupV2(c, frame)
-		return
-	}
-	DrawNextMatchup(c, frame.Matchup)
+	drawNextMatchup(c, frame)
 }
 
-func drawNextMatchupV1(c PixelCanvas, m ScoreboardNextMatchup) {
-	bounds := c.Bounds()
-	width := bounds.Max.X
-	height := bounds.Max.Y
-
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			c.Set(x, y, color.RGBA{R: 0, G: 0, B: 0, A: 255})
-		}
-	}
-
-	yellow := color.RGBA{R: 255, G: 255, B: 0, A: 255}
-	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
-	green := color.RGBA{R: 100, G: 200, B: 100, A: 255}
-	awayCol := GetTeamColor(m.AwayTeam.Name)
-	homeCol := GetTeamColor(m.HomeTeam.Name)
-
-	const rowH = fontRowH + 2
-
-	header := "NEXT"
-	if m.GameType != "" && m.GameType != "Regular Season" {
-		header = trimToChars("NEXT "+m.GameType, 16)
-	}
-	drawTextCentered(c, 1, header, yellow)
-	drawTextCentered(c, 1+rowH, formatNextMatchupDateTime(m.DateTime), green)
-
-	colW := width / 2
-	awayX := 0
-	homeX := colW
-
-	awayAbbr := teamAbbrev(m.AwayTeam.ShortName, m.AwayTeam.Name)
-	homeAbbr := teamAbbrev(m.HomeTeam.ShortName, m.HomeTeam.Name)
-	matchup := trimToChars(awayAbbr+" @ "+homeAbbr, 16)
-	drawTextCentered(c, 1+rowH*2, matchup, color.RGBA{R: 220, G: 220, B: 220, A: 255})
-
-	awayRecord := trimToChars(fmt.Sprintf("%d-%d", m.AwayTeam.Record.Wins, m.AwayTeam.Record.Losses), 8)
-	homeRecord := trimToChars(fmt.Sprintf("%d-%d", m.HomeTeam.Record.Wins, m.HomeTeam.Record.Losses), 8)
-	drawTextCenteredInRange(c, awayX, colW, 1+rowH*3, awayRecord, awayCol)
-	drawTextCenteredInRange(c, homeX, colW, 1+rowH*3, homeRecord, homeCol)
-
-	awayPitch := trimToChars(pitcherNameOnly(m.AwayTeam.ProbablePitcher), 8)
-	homePitch := trimToChars(pitcherNameOnly(m.HomeTeam.ProbablePitcher), 8)
-	drawTextCenteredInRange(c, awayX, colW, 1+rowH*4, awayPitch, awayCol)
-	drawTextCenteredInRange(c, homeX, colW, 1+rowH*4, homePitch, homeCol)
-
-	awayHand := pitcherHandLabel(m.AwayTeam.ProbablePitcher)
-	homeHand := pitcherHandLabel(m.HomeTeam.ProbablePitcher)
-	if awayHand != "" {
-		drawTextCenteredInRange(c, awayX, colW, 1+rowH*5, awayHand, grey)
-	}
-	if homeHand != "" {
-		drawTextCenteredInRange(c, homeX, colW, 1+rowH*5, homeHand, grey)
-	}
-
-	awayERA := m.AwayTeam.ProbablePitcher.ERA
-	homeERA := m.HomeTeam.ProbablePitcher.ERA
-	if awayERA != "" {
-		drawTextCenteredInRange(c, awayX, colW, 1+rowH*5, awayERA, grey)
-	}
-	if homeERA != "" {
-		drawTextCenteredInRange(c, homeX, colW, 1+rowH*5, homeERA, grey)
-	}
-
-	venueLines := formatVenueLines(m.Venue, 16, 2)
-	if len(venueLines) == 1 {
-		drawTextCentered(c, 1+rowH*7, venueLines[0], grey)
-	} else if len(venueLines) >= 2 {
-		drawTextCentered(c, 1+rowH*6, venueLines[0], grey)
-		drawTextCentered(c, 1+rowH*7, venueLines[1], grey)
-	}
-
-	_ = height
-}
-
-func drawNextMatchupV2(c PixelCanvas, frame ScoreboardNextMatchupFrame) {
+func drawNextMatchup(c PixelCanvas, frame ScoreboardNextMatchupFrame) {
 	bounds := c.Bounds()
 	width := bounds.Max.X
 	height := bounds.Max.Y
