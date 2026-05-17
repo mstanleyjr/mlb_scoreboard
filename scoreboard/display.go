@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 	"sort"
 	"strconv"
 	"sync"
@@ -402,7 +403,7 @@ func playNextMatchupV2(displayInfo ScoreboardNextMatchup, controller *DisplayCon
 				Matchup:        displayInfo,
 				PanelIndex:     panel,
 				NextPanelIndex: panel + 1,
-				SlideOffset:    ((frame + 1) * canvasWidth) / slideFrames,
+				SlideOffset:    easedSlideOffset(frame+1, slideFrames, canvasWidth),
 			}
 			setNextMatchupDisplayState(state)
 			waitDisplayFrame(controller, frameInterval)
@@ -426,6 +427,28 @@ func durationFrames(duration, frameInterval time.Duration) int {
 		return 1
 	}
 	return frames
+}
+
+func easedSlideOffset(frame, totalFrames, distance int) int {
+	if totalFrames <= 1 || distance <= 0 {
+		return distance
+	}
+	progress := float64(frame) / float64(totalFrames)
+	if progress < 0 {
+		progress = 0
+	}
+	if progress > 1 {
+		progress = 1
+	}
+	eased := 0.5 - 0.5*math.Cos(progress*math.Pi)
+	offset := int(math.Round(eased * float64(distance)))
+	if offset < 0 {
+		return 0
+	}
+	if offset > distance {
+		return distance
+	}
+	return offset
 }
 
 func waitDisplayFrame(controller *DisplayController, frameInterval time.Duration) {
