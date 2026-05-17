@@ -322,7 +322,7 @@ func drawNextMatchupV2(c PixelCanvas, frame ScoreboardNextMatchupFrame) {
 	bounds := c.Bounds()
 	width := bounds.Max.X
 	height := bounds.Max.Y
-	background := color.RGBA{R: 8, G: 24, B: 8, A: 255}
+	background := color.RGBA{R: 0, G: 0, B: 0, A: 255}
 
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
