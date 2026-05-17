@@ -31,6 +31,8 @@ var divisionStandingsMonochrome bool
 var divisionStandingsGreenBackground bool
 var nextMatchupHoldDuration = 2500 * time.Millisecond
 var nextMatchupSlideDuration = 500 * time.Millisecond
+var lastMatchupHoldDuration = 2500 * time.Millisecond
+var lastMatchupSlideDuration = 500 * time.Millisecond
 
 type divisionStandingsPalette struct {
 	background color.RGBA
@@ -60,6 +62,17 @@ func SetNextMatchupTiming(holdMS, slideMS int) {
 	}
 	nextMatchupHoldDuration = time.Duration(holdMS) * time.Millisecond
 	nextMatchupSlideDuration = time.Duration(slideMS) * time.Millisecond
+}
+
+func SetLastMatchupTiming(holdMS, slideMS int) {
+	if holdMS <= 0 {
+		holdMS = 2500
+	}
+	if slideMS <= 0 {
+		slideMS = 500
+	}
+	lastMatchupHoldDuration = time.Duration(holdMS) * time.Millisecond
+	lastMatchupSlideDuration = time.Duration(slideMS) * time.Millisecond
 }
 
 func divisionStandingsColors() divisionStandingsPalette {
@@ -389,18 +402,16 @@ func nextMatchupPitcherDetailLine(p ScoreboardPitcher) string {
 	}
 }
 
-// DrawLastMatchup renders the most recently completed game result.
-//
-// Layout (64x64, 8px rows):
-//
-//	y= 1  "FINAL" or "FINAL/10" for extra innings
-//	y= 9  column headers: "R H E L"
-//	y=17  away row: team + R/H/E/LOB
-//	y=25  home row: team + R/H/E/LOB
-//	y=33  W: winning pitcher last name (green)
-//	y=41  L: losing pitcher last name (red)
-//	y=49  S: save pitcher last name OR game time
 func DrawLastMatchup(c PixelCanvas, m ScoreboardLastMatchup) {
+	DrawLastMatchupFrame(c, ScoreboardLastMatchupFrame{
+		Matchup:        m,
+		PanelIndex:     0,
+		NextPanelIndex: -1,
+		SlideOffset:    0,
+	})
+}
+
+func DrawLastMatchupFrame(c PixelCanvas, frame ScoreboardLastMatchupFrame) {
 	bounds := c.Bounds()
 	width := bounds.Max.X
 	height := bounds.Max.Y
@@ -411,110 +422,116 @@ func DrawLastMatchup(c PixelCanvas, m ScoreboardLastMatchup) {
 		}
 	}
 
+	drawLastMatchupStaticTop(c, frame.Matchup)
+	drawLastMatchupBottomPanel(c, frame.Matchup, frame.PanelIndex, -frame.SlideOffset)
+	if frame.NextPanelIndex >= 0 {
+		drawLastMatchupBottomPanel(c, frame.Matchup, frame.NextPanelIndex, width-frame.SlideOffset)
+	}
+}
+
+func lastMatchupPanelCount() int {
+	return 3
+}
+
+func drawLastMatchupStaticTop(c PixelCanvas, m ScoreboardLastMatchup) {
+	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
 	yellow := color.RGBA{R: 255, G: 255, B: 0, A: 255}
+
+	awayAbbr := teamAbbrev(m.AwayTeam.Team.ShortName, m.AwayTeam.Team.Name)
+	homeAbbr := teamAbbrev(m.HomeTeam.Team.ShortName, m.HomeTeam.Team.Name)
+	awayCol := GetTeamColor(m.AwayTeam.Team.Name)
+	homeCol := GetTeamColor(m.HomeTeam.Team.Name)
+	drawText5x8CenteredSegmentsAtOffset(c, 0, 3, []text5x8Segment{
+		{text: awayAbbr, col: awayCol},
+		{text: " @ ", col: white},
+		{text: homeAbbr, col: homeCol},
+	})
+	drawText5x8CenteredSegmentsAtOffset(c, 0, 14, []text5x8Segment{
+		{text: fmt.Sprintf("%d", m.AwayTeam.Team.Runs), col: white},
+		{text: " - ", col: white},
+		{text: fmt.Sprintf("%d", m.HomeTeam.Team.Runs), col: white},
+		{text: "  ", col: white},
+		{text: lastMatchupStatusTag(m), col: yellow},
+	})
+}
+
+func lastMatchupStatusTag(m ScoreboardLastMatchup) string {
+	if m.FinalInning > 9 {
+		return fmt.Sprintf("F/%d", m.FinalInning)
+	}
+	return "F"
+}
+
+func lastMatchupDateLine(m ScoreboardLastMatchup) string {
+	if m.DateTime.IsZero() {
+		return ""
+	}
+	lt := m.DateTime.Local()
+	return fmt.Sprintf("%d/%d/%02d", int(lt.Month()), lt.Day(), lt.Year()%100)
+}
+
+func drawLastMatchupBottomPanel(c PixelCanvas, m ScoreboardLastMatchup, panelIndex int, xOffset int) {
+	if panelIndex < 0 || panelIndex >= lastMatchupPanelCount() {
+		return
+	}
+
 	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
 	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
 	red := color.RGBA{R: 220, G: 60, B: 60, A: 255}
 	green := color.RGBA{R: 100, G: 200, B: 100, A: 255}
+	awayCol := GetTeamColor(m.AwayTeam.Team.Name)
+	homeCol := GetTeamColor(m.HomeTeam.Team.Name)
 
-	const rowH = fontRowH + 2
-
-	header := "FINAL"
-	if m.FinalInning > 9 {
-		header = fmt.Sprintf("FINAL/%d", m.FinalInning)
-	}
-	drawTextCentered(c, 1, trimToChars(header, 16), yellow)
-
-	awayAbbr := teamAbbrev(m.AwayTeam.Team.ShortName, m.AwayTeam.Team.Name)
-	homeAbbr := teamAbbrev(m.HomeTeam.Team.ShortName, m.HomeTeam.Team.Name)
-	gridX := 1
-	gridY := 1 + rowH
-	gridW := width - 2
-	gridH := 17
-	winBg := color.RGBA{R: 0, G: 90, B: 0, A: 255}
-	if gridW >= 8 && height >= gridY+gridH {
-		colWidths := []int{14, 12, 12, 12, 12}
-		for dx := 0; dx < gridW; dx++ {
-			c.Set(gridX+dx, gridY, grey)
-			c.Set(gridX+dx, gridY+gridH-1, grey)
+	switch panelIndex {
+	case 0:
+		drawText5x8CenteredInRangeAtOffset(c, 0, 32, xOffset, 28, fmt.Sprintf("%d-%d", m.AwayTeam.Team.Record.Wins, m.AwayTeam.Team.Record.Losses), white)
+		drawText5x8CenteredInRangeAtOffset(c, 32, 32, xOffset, 28, fmt.Sprintf("%d-%d", m.HomeTeam.Team.Record.Wins, m.HomeTeam.Team.Record.Losses), white)
+		if line := lastMatchupDateLine(m); line != "" {
+			drawText5x8CenteredAtOffset(c, xOffset, 37, line, white)
 		}
-		for dy := 0; dy < gridH; dy++ {
-			c.Set(gridX, gridY+dy, grey)
-			c.Set(gridX+gridW-1, gridY+dy, grey)
+		venueLines := formatVenueLines(strings.ToUpper(m.Venue), 12, 2)
+		if len(venueLines) == 1 {
+			drawText5x8CenteredAtOffset(c, xOffset, 50, venueLines[0], grey)
+		} else if len(venueLines) >= 2 {
+			drawText5x8CenteredAtOffset(c, xOffset, 46, venueLines[0], grey)
+			drawText5x8CenteredAtOffset(c, xOffset, 55, venueLines[1], grey)
 		}
-		colX := gridX + 1
-		for i := 0; i < len(colWidths)-1; i++ {
-			colX += colWidths[i]
-			for dy := 1; dy < gridH-1; dy++ {
-				c.Set(colX, gridY+dy, grey)
-			}
+	case 1:
+		drawLastMatchupStatPairRow(c, xOffset, 28, "R", fmt.Sprintf("%d", m.AwayTeam.Team.Runs), fmt.Sprintf("%d", m.HomeTeam.Team.Runs), grey, awayCol, homeCol)
+		drawLastMatchupStatPairRow(c, xOffset, 37, "H", fmt.Sprintf("%d", m.AwayTeam.Team.Hits), fmt.Sprintf("%d", m.HomeTeam.Team.Hits), grey, awayCol, homeCol)
+		drawLastMatchupStatPairRow(c, xOffset, 46, "E", fmt.Sprintf("%d", m.AwayTeam.Team.Errors), fmt.Sprintf("%d", m.HomeTeam.Team.Errors), grey, awayCol, homeCol)
+		drawLastMatchupStatPairRow(c, xOffset, 55, "L", fmt.Sprintf("%d", m.AwayTeam.Team.LOB), fmt.Sprintf("%d", m.HomeTeam.Team.LOB), grey, awayCol, homeCol)
+	case 2:
+		lines := []struct {
+			text string
+			col  color.RGBA
+		}{
+			{text: trimText5x8ToWidth(strings.ToUpper("W:"+m.WinningPitcherLastName), 62), col: green},
+			{text: trimText5x8ToWidth(strings.ToUpper("L:"+m.LosingPitcherLastName), 62), col: red},
 		}
-		h1 := gridY + 5
-		h2 := gridY + 10
-		for dx := 1; dx < gridW-1; dx++ {
-			c.Set(gridX+dx, h1, grey)
-			c.Set(gridX+dx, h2, grey)
+		if m.SavePitcherLastName != "" && m.SavePitcherLastName != "TBD" {
+			lines = append(lines, struct {
+				text string
+				col  color.RGBA
+			}{
+				text: trimText5x8ToWidth(strings.ToUpper("S:"+m.SavePitcherLastName), 62),
+				col:  white,
+			})
 		}
-
-		// Header row: centered R/H/E/L labels.
-		statLabels := []string{"", "R", "H", "E", "L"}
-		cellX := gridX + 1
-		for i, label := range statLabels {
-			drawText3x4CenteredInRange(c, cellX, colWidths[i], gridY+1, label, grey)
-			cellX += colWidths[i]
+		startY := 28
+		if len(lines) == 2 {
+			startY = 33
 		}
-
-		awayVals := []string{awayAbbr, fmt.Sprintf("%d", m.AwayTeam.Team.Runs), fmt.Sprintf("%d", m.AwayTeam.Team.Hits), fmt.Sprintf("%d", m.AwayTeam.Team.Errors), fmt.Sprintf("%d", m.AwayTeam.Team.LOB)}
-		homeVals := []string{homeAbbr, fmt.Sprintf("%d", m.HomeTeam.Team.Runs), fmt.Sprintf("%d", m.HomeTeam.Team.Hits), fmt.Sprintf("%d", m.HomeTeam.Team.Errors), fmt.Sprintf("%d", m.HomeTeam.Team.LOB)}
-
-		awayCol := GetTeamColor(m.AwayTeam.Team.Name)
-		homeCol := GetTeamColor(m.HomeTeam.Team.Name)
-		if m.AwayTeam.Winner {
-			awayCol = white
-		}
-		if m.HomeTeam.Winner {
-			homeCol = white
-		}
-
-		fillRow := func(rowTop int, rowBottom int, teamCol color.RGBA) {
-			for x := gridX + 1; x < gridX+gridW-1; x++ {
-				for y := rowTop; y <= rowBottom; y++ {
-					c.Set(x, y, teamCol)
-				}
-			}
-		}
-		if m.AwayTeam.Winner {
-			fillRow(gridY+6, gridY+9, winBg)
-		}
-		if m.HomeTeam.Winner {
-			fillRow(gridY+11, gridY+14, winBg)
-		}
-
-		cellY := gridY + 6
-		cellX = gridX + 1
-		for i, val := range awayVals {
-			drawText3x4CenteredInRange(c, cellX, colWidths[i], cellY, val, awayCol)
-			cellX += colWidths[i]
-		}
-		cellY = gridY + 11
-		cellX = gridX + 1
-		for i, val := range homeVals {
-			drawText3x4CenteredInRange(c, cellX, colWidths[i], cellY, val, homeCol)
-			cellX += colWidths[i]
+		for i, line := range lines {
+			drawText5x8CenteredAtOffset(c, xOffset, startY+i*9, line.text, line.col)
 		}
 	}
+}
 
-	if m.WinningPitcherLastName != "" && m.WinningPitcherLastName != "TBD" {
-		DrawText(c, 1, gridY+gridH+1, trimToChars("W:"+m.WinningPitcherLastName, 16), green)
-	}
-	if m.LosingPitcherLastName != "" && m.LosingPitcherLastName != "TBD" {
-		DrawText(c, 1, gridY+gridH+7, trimToChars("L:"+m.LosingPitcherLastName, 16), red)
-	}
-	if m.SavePitcherLastName != "" && m.SavePitcherLastName != "TBD" {
-		DrawText(c, 1, gridY+gridH+13, trimToChars("S:"+m.SavePitcherLastName, 16), white)
-	} else {
-		drawTextCentered(c, gridY+gridH+13, formatNextMatchupDateTime(m.DateTime), grey)
-	}
+func drawLastMatchupStatPairRow(c PixelCanvas, xOffset, y int, label, awayVal, homeVal string, labelCol, awayCol, homeCol color.RGBA) {
+	drawText5x8CenteredInRangeAtOffset(c, 0, 16, xOffset, y, label, labelCol)
+	drawText5x8CenteredInRangeAtOffset(c, 16, 24, xOffset, y, awayVal, awayCol)
+	drawText5x8CenteredInRangeAtOffset(c, 40, 24, xOffset, y, homeVal, homeCol)
 }
 
 // teamAbbrev chooses an abbreviation suitable for 3-char scoreboard rows.
@@ -532,6 +549,20 @@ func drawText3x4CenteredInRange(c PixelCanvas, xStart, regionW, y int, text stri
 		x = xStart
 	}
 	DrawText3x4(c, x, y, text, col)
+}
+
+func DrawText3x4CenteredAtOffset(c PixelCanvas, xOffset, y int, text string, col color.RGBA) {
+	panelWidth := c.Bounds().Max.X
+	tw := len(text) * fontAdv3x4
+	x := xOffset + (panelWidth-tw)/2
+	if x < xOffset {
+		x = xOffset
+	}
+	DrawText3x4(c, x, y, text, col)
+}
+
+func drawText3x4CenteredInRangeAtOffset(c PixelCanvas, xStart, regionW, xOffset, y int, text string, col color.RGBA) {
+	drawText3x4CenteredInRange(c, xOffset+xStart, regionW, y, text, col)
 }
 
 func drawText3x4RightAligned(c PixelCanvas, rightX, y int, text string, col color.RGBA) {
@@ -555,6 +586,14 @@ func drawText5x8CenteredAtOffset(c PixelCanvas, xOffset, y int, text string, col
 	x := xOffset + (panelWidth-measureText5x8Width(text))/2
 	if x < xOffset {
 		x = xOffset
+	}
+	DrawText5x8(c, x, y, text, col)
+}
+
+func drawText5x8CenteredInRangeAtOffset(c PixelCanvas, xStart, regionW, xOffset, y int, text string, col color.RGBA) {
+	x := xOffset + xStart + (regionW-measureText5x8Width(text))/2
+	if x < xOffset+xStart {
+		x = xOffset + xStart
 	}
 	DrawText5x8(c, x, y, text, col)
 }
