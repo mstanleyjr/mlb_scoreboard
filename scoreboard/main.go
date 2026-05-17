@@ -92,11 +92,11 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 	}
 	fmt.Printf("Batter stats: %+v\n", batter)
 
-	const standingsRollupMaxDuration = 120 * time.Second
+	const standingsRollupMaxDuration = 90 * time.Second
 
 	pages := make([]func(scoreboardInfo ScoreboardInformation), 0)
 	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-		//StandingsRollupDisplay(ctx, scoreboardInfo, controller, standingsRollupMaxDuration)
+		StandingsRollupDisplay(ctx, scoreboardInfo, controller, standingsRollupMaxDuration)
 	})
 	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
 		NextMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)

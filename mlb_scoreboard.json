@@ -1,7 +1,7 @@
 {
   "division_standings": {
-    "monochrome": true,
-    "green_background": true
+    "monochrome": false,
+    "green_background": false
   },
   "next_matchup": {
     "version": "v2",
