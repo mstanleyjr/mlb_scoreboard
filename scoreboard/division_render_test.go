@@ -1,0 +1,194 @@
+package scoreboard
+
+import (
+	"image/color"
+	"testing"
+)
+
+func TestTrimText5x8ToWidthPreservesWhiteSox(t *testing.T) {
+	const teamAreaWidth = 64 - divisionStandingsTeamX - 1
+
+	if got := trimText5x8ToWidth("WHITE SOX", teamAreaWidth); got != "WHITE SOX" {
+		t.Fatalf("expected WHITE SOX to fit in %dpx, got %q", teamAreaWidth, got)
+	}
+}
+
+func TestFormatDivisionGamesBackPreservesHalfGames(t *testing.T) {
+	if got := trimToChars(formatDivisionGamesBack("11.5"), divisionStandingsMaxGBChars); got != "11.5" {
+		t.Fatalf("expected 11.5 games back to be preserved, got %q", got)
+	}
+}
+
+func TestDivisionStandingsColorsMonochrome(t *testing.T) {
+	SetDivisionStandingsMonochrome(true)
+	SetDivisionStandingsGreenBackground(false)
+	t.Cleanup(func() {
+		SetDivisionStandingsMonochrome(false)
+		SetDivisionStandingsGreenBackground(false)
+	})
+
+	palette := divisionStandingsColors()
+	want := color.RGBA{R: 220, G: 220, B: 220, A: 255}
+	if palette.title != want || palette.team != want || palette.record != want || palette.gamesBack != want || palette.rule != want || palette.line != want {
+		t.Fatalf("expected monochrome palette to use %+v across standings colors, got %+v", want, palette)
+	}
+}
+
+func TestDivisionStandingsColorsGreenBackground(t *testing.T) {
+	SetDivisionStandingsMonochrome(false)
+	SetDivisionStandingsGreenBackground(true)
+	t.Cleanup(func() {
+		SetDivisionStandingsMonochrome(false)
+		SetDivisionStandingsGreenBackground(false)
+	})
+
+	palette := divisionStandingsColors()
+	want := color.RGBA{R: 22, G: 67, B: 22, A: 255}
+	if palette.background != want {
+		t.Fatalf("expected green background %+v, got %+v", want, palette.background)
+	}
+}
+
+func TestTrimText5x8ToWidthPreservesLongSingleWordNames(t *testing.T) {
+	const teamAreaWidth = 64 - divisionStandingsTeamX - 1
+
+	for _, name := range []string{"NATIONALS", "CARDINALS"} {
+		if got := trimText5x8ToWidth(name, teamAreaWidth); got != name {
+			t.Fatalf("expected %s to fit in %dpx, got %q", name, teamAreaWidth, got)
+		}
+	}
+}
+
+func TestDrawDivisionStandingsAddsHeaderSeparator(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	SetDivisionStandingsMonochrome(false)
+	SetDivisionStandingsGreenBackground(false)
+	division := ScoreboardDivision{
+		Sections: []ScoreboardStandingsSection{
+			{
+				Title: "AL CENTRAL",
+				Teams: []ScoreboardDivisionTeam{
+					{
+						Name:      "Chicago White Sox",
+						ShortName: "White Sox",
+						Rank:      1,
+						Record:    ScoreboardWinLossRecord{Wins: 10, Losses: 5},
+						GamesBack: "0.0",
+					},
+				},
+			},
+		},
+	}
+
+	DrawDivisionStandings(canvas, division)
+
+	ruleY := divisionStandingsTopPadding + divisionStandingsTitleH + divisionStandingsTitleRuleGap
+	want := color.RGBA{R: 70, G: 70, B: 70, A: 255}
+	got := canvas.pix[ruleY*canvas.w+1]
+	if got != want {
+		t.Fatalf("expected divider pixel at (1,%d) to be %+v, got %+v", ruleY, want, got)
+	}
+	if got := canvas.pix[(ruleY+1)*canvas.w+divisionStandingsLineX]; got != (color.RGBA{R: 90, G: 90, B: 90, A: 255}) {
+		t.Fatalf("expected first vertical line pixel below header at (%d,%d), got %+v", divisionStandingsLineX, ruleY+1, got)
+	}
+}
+
+func TestDrawDivisionStandingsMonochromeUsesLightGray(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	SetDivisionStandingsMonochrome(true)
+	SetDivisionStandingsGreenBackground(false)
+	t.Cleanup(func() {
+		SetDivisionStandingsMonochrome(false)
+		SetDivisionStandingsGreenBackground(false)
+	})
+
+	division := ScoreboardDivision{
+		Sections: []ScoreboardStandingsSection{
+			{
+				Title: "AL CENTRAL",
+				Teams: []ScoreboardDivisionTeam{
+					{
+						Name:      "Chicago White Sox",
+						ShortName: "White Sox",
+						Rank:      1,
+						Record:    ScoreboardWinLossRecord{Wins: 10, Losses: 5},
+						GamesBack: "0.0",
+					},
+				},
+			},
+		},
+	}
+
+	DrawDivisionStandings(canvas, division)
+
+	want := color.RGBA{R: 220, G: 220, B: 220, A: 255}
+	ruleY := divisionStandingsTopPadding + divisionStandingsTitleH + divisionStandingsTitleRuleGap
+	if got := canvas.pix[ruleY*canvas.w+1]; got != want {
+		t.Fatalf("expected divider pixel to be %+v, got %+v", want, got)
+	}
+	if got := canvas.pix[(ruleY+1)*canvas.w+divisionStandingsLineX]; got != want {
+		t.Fatalf("expected first vertical line pixel below header to be %+v, got %+v", want, got)
+	}
+	nameY := divisionStandingsTopPadding + divisionStandingsTitleH + divisionStandingsTitleGap
+	if got := canvas.pix[nameY*canvas.w+divisionStandingsTeamX]; got != want {
+		t.Fatalf("expected team pixel to be %+v, got %+v", want, got)
+	}
+}
+
+func TestDrawDivisionStandingsGreenBackgroundUsesConfiguredColor(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	SetDivisionStandingsMonochrome(false)
+	SetDivisionStandingsGreenBackground(true)
+	t.Cleanup(func() {
+		SetDivisionStandingsMonochrome(false)
+		SetDivisionStandingsGreenBackground(false)
+	})
+
+	DrawDivisionStandings(canvas, ScoreboardDivision{})
+
+	want := color.RGBA{R: 22, G: 67, B: 22, A: 255}
+	if got := canvas.pix[0]; got != want {
+		t.Fatalf("expected background pixel to be %+v, got %+v", want, got)
+	}
+}
+
+func TestDrawDivisionStandingsSecondRowGetsSameTopSpacing(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	SetDivisionStandingsMonochrome(false)
+	SetDivisionStandingsGreenBackground(false)
+	division := ScoreboardDivision{
+		Sections: []ScoreboardStandingsSection{
+			{
+				Title: "AL CENTRAL",
+				Teams: []ScoreboardDivisionTeam{
+					{
+						Name:      "Chicago White Sox",
+						ShortName: "White Sox",
+						Rank:      1,
+						Record:    ScoreboardWinLossRecord{Wins: 10, Losses: 5},
+						GamesBack: "0.0",
+					},
+					{
+						Name:      "Detroit Tigers",
+						ShortName: "Tigers",
+						Rank:      2,
+						Record:    ScoreboardWinLossRecord{Wins: 9, Losses: 6},
+						GamesBack: "1.0",
+					},
+				},
+			},
+		},
+	}
+
+	DrawDivisionStandings(canvas, division)
+
+	secondNameY := divisionStandingsTopPadding + divisionStandingsTitleH + divisionStandingsTitleGap + divisionStandingsRowBlockH + divisionStandingsRowGap
+	lineY := secondNameY - divisionStandingsRowGap
+	want := color.RGBA{R: 90, G: 90, B: 90, A: 255}
+	if got := canvas.pix[lineY*canvas.w+divisionStandingsLineX]; got != want {
+		t.Fatalf("expected second vertical line pixel at (%d,%d) to be %+v, got %+v", divisionStandingsLineX, lineY, want, got)
+	}
+	if got := canvas.pix[secondNameY*canvas.w+divisionStandingsTeamX]; got == (color.RGBA{}) {
+		t.Fatalf("expected second team row to render at y=%d", secondNameY)
+	}
+}

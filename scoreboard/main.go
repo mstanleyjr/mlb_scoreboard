@@ -92,19 +92,15 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 	}
 	fmt.Printf("Batter stats: %+v\n", batter)
 
+	const standingsRollupMaxDuration = 120 * time.Second
+
 	pages := make([]func(scoreboardInfo ScoreboardInformation), 0)
-	//for _, league := range leagueMap {
-	//	for divisionIndex := range league.Divisions {
-	//		li := *league.League.Id
-	//		di := divisionIndex
-	//		pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-	//			DivisionStandingsDisplay(ctx, scoreboardInfo, li, di, controller)
-	//		})
-	//	}
-	//}
-	//pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
-	//	NextMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
-	//})
+	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+		StandingsRollupDisplay(ctx, scoreboardInfo, controller, standingsRollupMaxDuration)
+	})
+	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
+		NextMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
+	})
 	pages = append(pages, func(scoreboardInfo ScoreboardInformation) {
 		LastMatchupDisplay(ctx, scoreboardInfo, mlbClient, controller)
 	})

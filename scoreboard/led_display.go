@@ -8,6 +8,79 @@ import (
 	"time"
 )
 
+const (
+	divisionStandingsTopPadding    = 2
+	divisionStandingsTitleH        = 8
+	divisionStandingsTitleGap      = 6
+	divisionStandingsTitleRuleGap  = 3
+	divisionStandingsRowBlockH     = 19
+	divisionStandingsRowGap        = 1
+	divisionStandingsRankX         = 1
+	divisionStandingsLineX         = 7
+	divisionStandingsTeamX         = 10
+	divisionStandingsRecordX       = 10
+	divisionStandingsGBRightX      = 63
+	divisionStandingsSectionGap    = 4
+	divisionStandingsLineGapBottom = 1
+	divisionStandingsMaxGBChars    = 4
+	divisionStandingsMaxTitleChar  = 10
+	divisionStandingsCanvasHeight  = 64
+)
+
+var divisionStandingsMonochrome bool
+var divisionStandingsGreenBackground bool
+
+type divisionStandingsPalette struct {
+	background color.RGBA
+	title      color.RGBA
+	rank       color.RGBA
+	team       color.RGBA
+	record     color.RGBA
+	gamesBack  color.RGBA
+	rule       color.RGBA
+	line       color.RGBA
+}
+
+func SetDivisionStandingsMonochrome(enabled bool) {
+	divisionStandingsMonochrome = enabled
+}
+
+func SetDivisionStandingsGreenBackground(enabled bool) {
+	divisionStandingsGreenBackground = enabled
+}
+
+func divisionStandingsColors() divisionStandingsPalette {
+	background := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	if divisionStandingsGreenBackground {
+		background = color.RGBA{R: 22, G: 67, B: 22, A: 255}
+	}
+
+	if divisionStandingsMonochrome {
+		lightGray := color.RGBA{R: 220, G: 220, B: 220, A: 255}
+		return divisionStandingsPalette{
+			background: background,
+			title:      lightGray,
+			rank:       lightGray,
+			team:       lightGray,
+			record:     lightGray,
+			gamesBack:  lightGray,
+			rule:       lightGray,
+			line:       lightGray,
+		}
+	}
+
+	return divisionStandingsPalette{
+		background: background,
+		title:      color.RGBA{R: 255, G: 255, B: 0, A: 255},
+		rank:       color.RGBA{R: 180, G: 180, B: 180, A: 255},
+		team:       color.RGBA{},
+		record:     color.RGBA{R: 120, G: 180, B: 255, A: 255},
+		gamesBack:  color.RGBA{R: 100, G: 200, B: 100, A: 255},
+		rule:       color.RGBA{R: 70, G: 70, B: 70, A: 255},
+		line:       color.RGBA{R: 90, G: 90, B: 90, A: 255},
+	}
+}
+
 // PixelCanvas is the minimal surface needed by scoreboard renderers.
 // Both rgbmatrix.Canvas and the local terminal sim canvas can satisfy this.
 type PixelCanvas interface {
@@ -20,45 +93,111 @@ func DrawDivisionStandings(c PixelCanvas, division ScoreboardDivision) {
 	bounds := c.Bounds()
 	width := bounds.Max.X
 	height := bounds.Max.Y
+	palette := divisionStandingsColors()
 
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
-			c.Set(x, y, color.RGBA{R: 0, G: 0, B: 0, A: 255})
+			c.Set(x, y, palette.background)
 		}
 	}
 
-	const (
-		titleX      = 1
-		titleY      = 1
-		rowStartY   = 8            // title is 5px tall + 2px gap
-		rowHeight   = fontRowH + 2 // 8px per row: 5px glyph + 3px gap
-		teamX       = 1
-		recordX     = 48
-		maxTeamChar = 15
-	)
-
-	DrawTextSmall(c, titleX, titleY, division.LeagueName, color.RGBA{R: 255, G: 255, B: 0, A: 255})
-
-	for i, team := range division.Teams {
-		y := rowStartY + (i * rowHeight) + 3
-		if y+7 >= height {
-			break
+	contentY := divisionStandingsTopPadding - division.ScrollOffset
+	for sectionIndex, section := range division.Sections {
+		titleY := contentY
+		title := trimToChars(strings.ToUpper(section.Title), divisionStandingsMaxTitleChar)
+		if titleY < height && titleY+fontH5x8 >= 0 {
+			DrawText5x8Centered(c, titleY, title, palette.title)
+		}
+		titleRuleY := titleY + divisionStandingsTitleH + divisionStandingsTitleRuleGap
+		if titleRuleY >= 0 && titleRuleY < height {
+			for x := 1; x < width-1; x++ {
+				c.Set(x, titleRuleY, palette.rule)
+			}
 		}
 
-		teamName := team.Name
-		if len(teamName) > maxTeamChar {
-			teamName = teamName[:maxTeamChar]
-		}
-		DrawTextSmall(c, teamX, y, teamName, GetTeamColor(team.Name))
+		contentY += divisionStandingsTitleH + divisionStandingsTitleGap
+		for teamIndex, team := range section.Teams {
+			nameY := contentY
+			statsY := nameY + 10
+			separatorY := nameY + divisionStandingsRowBlockH - 1
+			if nameY < height && statsY+fontH5x8 >= 0 {
+				rank := trimToChars(fmt.Sprintf("%d", team.Rank), 2)
+				name := trimText5x8ToWidth(strings.ToUpper(chooseStringValue(team.ShortName, team.Name)), width-divisionStandingsTeamX-1)
+				record := trimToChars(fmt.Sprintf("%d-%d", team.Record.Wins, team.Record.Losses), 6)
+				gb := trimToChars(formatDivisionGamesBack(team.GamesBack), divisionStandingsMaxGBChars)
+				teamColor := GetTeamColor(team.Name)
+				if divisionStandingsMonochrome {
+					teamColor = palette.team
+				}
 
-		// Compact record avoids clipping on 64px width (e.g. 1-0, 10-8)
-		recordStr := fmt.Sprintf("%d-%d", team.Record.Wins, team.Record.Losses)
-		maxRecordChars := (width - recordX) / fontAdv
-		if len(recordStr) > maxRecordChars {
-			recordStr = recordStr[:maxRecordChars]
+				DrawText5x8(c, divisionStandingsRankX, nameY, rank, palette.rank)
+				DrawText5x8(c, divisionStandingsTeamX, nameY, name, teamColor)
+				DrawText5x8(c, divisionStandingsRecordX, statsY, record, palette.record)
+				drawText5x8RightAligned(c, divisionStandingsGBRightX, statsY, gb, palette.gamesBack)
+
+				lineTop := nameY - divisionStandingsRowGap
+				if teamIndex == 0 {
+					lineTop = titleRuleY + 1
+				}
+				lineBottom := statsY + fontH5x8 - divisionStandingsLineGapBottom
+				for y := lineTop; y <= lineBottom; y++ {
+					if y >= 0 && y < height {
+						c.Set(divisionStandingsLineX, y, palette.line)
+					}
+				}
+			}
+
+			if (teamIndex < len(section.Teams)-1 || sectionIndex < len(division.Sections)-1) && separatorY >= 0 && separatorY < height {
+				for x := 1; x < width-1; x++ {
+					c.Set(x, separatorY, palette.rule)
+				}
+			}
+
+			contentY += divisionStandingsRowBlockH
+			if teamIndex < len(section.Teams)-1 {
+				contentY += divisionStandingsRowGap
+			}
 		}
-		DrawTextSmall(c, recordX, y, recordStr, color.RGBA{R: 100, G: 200, B: 100, A: 255})
+
+		contentY += divisionStandingsSectionGap
 	}
+}
+
+func formatDivisionGamesBack(gamesBack string) string {
+	gb := strings.TrimSpace(gamesBack)
+	switch gb {
+	case "", "-", "0", "0.0":
+		return "-"
+	}
+	gb = strings.TrimSuffix(gb, ".0")
+	return gb
+}
+
+func divisionStandingsMaxScrollOffset(displayInfo ScoreboardDivision) int {
+	contentHeight := divisionStandingsContentHeight(displayInfo)
+	if contentHeight <= divisionStandingsCanvasHeight {
+		return 0
+	}
+	return contentHeight - divisionStandingsCanvasHeight
+}
+
+func divisionStandingsContentHeight(displayInfo ScoreboardDivision) int {
+	if len(displayInfo.Sections) == 0 {
+		return divisionStandingsCanvasHeight
+	}
+
+	height := divisionStandingsTopPadding
+	for sectionIndex, section := range displayInfo.Sections {
+		height += divisionStandingsTitleH + divisionStandingsTitleGap
+		height += len(section.Teams) * divisionStandingsRowBlockH
+		if len(section.Teams) > 1 {
+			height += (len(section.Teams) - 1) * divisionStandingsRowGap
+		}
+		if sectionIndex < len(displayInfo.Sections)-1 {
+			height += divisionStandingsSectionGap
+		}
+	}
+	return height
 }
 
 func DrawNextMatchup(c PixelCanvas, m ScoreboardNextMatchup) {
@@ -300,6 +439,37 @@ func drawText3x4CenteredInRange(c PixelCanvas, xStart, regionW, y int, text stri
 		x = xStart
 	}
 	DrawText3x4(c, x, y, text, col)
+}
+
+func drawText3x4RightAligned(c PixelCanvas, rightX, y int, text string, col color.RGBA) {
+	x := rightX - (len(text) * fontAdv3x4)
+	if x < 0 {
+		x = 0
+	}
+	DrawText3x4(c, x, y, text, col)
+}
+
+func drawText5x8RightAligned(c PixelCanvas, rightX, y int, text string, col color.RGBA) {
+	x := rightX - measureText5x8Width(text)
+	if x < 0 {
+		x = 0
+	}
+	DrawText5x8(c, x, y, text, col)
+}
+
+func drawTextRightAligned(c PixelCanvas, rightX, y int, text string, col color.RGBA) {
+	x := rightX - (len(text) * fontAdv)
+	if x < 0 {
+		x = 0
+	}
+	DrawTextSmall(c, x, y, text, col)
+}
+
+func chooseStringValue(primary, fallback string) string {
+	if strings.TrimSpace(primary) != "" {
+		return primary
+	}
+	return fallback
 }
 
 func drawOutCircle(c PixelCanvas, x, y int, filled bool, outlineCol, fillCol color.RGBA) {
@@ -900,6 +1070,85 @@ func DrawText3x5Centered(c PixelCanvas, y int, text string, col color.RGBA) {
 		x = 0
 	}
 	DrawText3x5(c, x, y, text, col)
+}
+
+func DrawText5x8(c PixelCanvas, x, y int, text string, col color.RGBA) {
+	bounds := c.Bounds()
+	cx := x
+	runes := []rune(text)
+	for i, ch := range runes {
+		if cx >= bounds.Max.X {
+			break
+		}
+
+		glyph, ok := font5x8[ch]
+		if !ok {
+			glyph = font5x8[' ']
+		}
+
+		for row := 0; row < fontH5x8; row++ {
+			for colIdx := 0; colIdx < fontW5x8; colIdx++ {
+				if glyph[row]&(1<<uint(fontW5x8-1-colIdx)) != 0 {
+					px := cx + colIdx
+					py := y + row
+					if px >= 0 && px < bounds.Max.X && py >= 0 && py < bounds.Max.Y {
+						c.Set(px, py, col)
+					}
+				}
+			}
+		}
+		cx += advance5x8(ch, i == len(runes)-1)
+	}
+}
+
+func DrawText5x8Centered(c PixelCanvas, y int, text string, col color.RGBA) {
+	w := c.Bounds().Max.X
+	tw := measureText5x8Width(text)
+	x := (w - tw) / 2
+	if x < 0 {
+		x = 0
+	}
+	DrawText5x8(c, x, y, text, col)
+}
+
+func measureText5x8Width(text string) int {
+	width := 0
+	runes := []rune(text)
+	for i, ch := range runes {
+		width += advance5x8(ch, i == len(runes)-1)
+	}
+	return width
+}
+
+func trimText5x8ToWidth(text string, maxWidth int) string {
+	if maxWidth <= 0 {
+		return ""
+	}
+	runes := []rune(text)
+	if measureText5x8Width(text) <= maxWidth {
+		return text
+	}
+	for len(runes) > 0 {
+		runes = runes[:len(runes)-1]
+		trimmed := string(runes)
+		if measureText5x8Width(trimmed) <= maxWidth {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func advance5x8(ch rune, isLast bool) int {
+	if ch == ' ' {
+		if isLast {
+			return 0
+		}
+		return 4
+	}
+	if isLast {
+		return fontW5x8
+	}
+	return fontAdv5x8
 }
 
 func drawText3x5CenteredInRange(c PixelCanvas, xStart, regionW, y int, text string, col color.RGBA) {

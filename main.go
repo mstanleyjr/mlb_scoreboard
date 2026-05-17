@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -14,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mstanleyjr/mlb_scoreboard/internal/appconfig"
 	"github.com/mstanleyjr/mlb_scoreboard/scoreboard"
 	rgbmatrix "github.com/tfk1410/go-rpi-rgb-led-matrix"
 )
@@ -23,6 +25,31 @@ var (
 )
 
 func main() {
+	defaults := appconfig.DefaultConfig()
+	configPath := flag.String("config", appconfig.DefaultPath, "path to startup config file")
+	divisionStandingsMonochrome := flag.Bool("division-standings-monochrome", defaults.DivisionStandings.Monochrome, "render division standings text and dividers in light gray")
+	divisionStandingsGreenBackground := flag.Bool("division-standings-green-background", defaults.DivisionStandings.GreenBackground, "render division standings with a dark scoreboard green background")
+	flag.Parse()
+
+	cfg, err := appconfig.Load(*configPath)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	visited := visitedFlags(flag.CommandLine)
+	monochrome := cfg.DivisionStandings.Monochrome
+	if visited["division-standings-monochrome"] {
+		monochrome = *divisionStandingsMonochrome
+	}
+	greenBackground := cfg.DivisionStandings.GreenBackground
+	if visited["division-standings-green-background"] {
+		greenBackground = *divisionStandingsGreenBackground
+	}
+
+	scoreboard.SetDivisionStandingsMonochrome(monochrome)
+	scoreboard.SetDivisionStandingsGreenBackground(greenBackground)
+
 	fmt.Println("HERE WE GOOOOO")
 
 	// Create RGB LED matrix config
@@ -37,7 +64,6 @@ func main() {
 		config.Rows, config.Cols, config.HardwareMapping, config.DisableHardwarePulsing)
 
 	// Create RGB LED matrix
-	var err error
 	matrix, err := rgbmatrix.NewRGBLedMatrix(config)
 	if err != nil {
 		fmt.Printf("Error creating matrix: %v\n", err)
@@ -128,6 +154,14 @@ func main() {
 	fmt.Println("Scoreboard shutdown complete")
 }
 
+func visitedFlags(fs *flag.FlagSet) map[string]bool {
+	visited := make(map[string]bool)
+	fs.Visit(func(f *flag.Flag) {
+		visited[f.Name] = true
+	})
+	return visited
+}
+
 // DrawTestPattern draws a simple test pattern to verify the display is working
 func DrawTestPattern(c *rgbmatrix.Canvas) {
 	bounds := c.Bounds()
@@ -174,14 +208,10 @@ func DrawLoadingScreen(c *rgbmatrix.Canvas) {
 
 	text := "LOADING"
 	textColor := color.RGBA{R: 255, G: 255, B: 0, A: 255}
-
-	// 3x5 font with 1px gap -> 4px advance per character.
-	textWidth := len(text) * 4
-	startX := (width - textWidth) / 2
-	startY := (height - 5) / 2
-	if startX < 0 {
-		startX = 0
+	startY := (height - 8) / 2
+	if startY < 0 {
+		startY = 0
 	}
 
-	scoreboard.DrawTextSmall(c, startX, startY, text, textColor)
+	scoreboard.DrawText5x8Centered(c, startY, text, textColor)
 }
