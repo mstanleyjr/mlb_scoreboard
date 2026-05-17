@@ -11,7 +11,7 @@ import (
 const (
 	divisionStandingsTopPadding    = 2
 	divisionStandingsTitleH        = 8
-	divisionStandingsTitleGap      = 5
+	divisionStandingsTitleGap      = 6
 	divisionStandingsTitleRuleGap  = 3
 	divisionStandingsRowBlockH     = 19
 	divisionStandingsRankX         = 1
@@ -135,6 +135,9 @@ func DrawDivisionStandings(c PixelCanvas, division ScoreboardDivision) {
 				drawText5x8RightAligned(c, divisionStandingsGBRightX, statsY, gb, palette.gamesBack)
 
 				lineTop := nameY
+				if teamIndex == 0 {
+					lineTop = titleRuleY + 1
+				}
 				lineBottom := statsY + fontH5x8 - divisionStandingsLineGapBottom
 				for y := lineTop; y <= lineBottom; y++ {
 					if y >= 0 && y < height {

@@ -88,6 +88,9 @@ func TestDrawDivisionStandingsAddsHeaderSeparator(t *testing.T) {
 	if got != want {
 		t.Fatalf("expected divider pixel at (1,%d) to be %+v, got %+v", ruleY, want, got)
 	}
+	if got := canvas.pix[(ruleY+1)*canvas.w+divisionStandingsLineX]; got != (color.RGBA{R: 90, G: 90, B: 90, A: 255}) {
+		t.Fatalf("expected first vertical line pixel below header at (%d,%d), got %+v", divisionStandingsLineX, ruleY+1, got)
+	}
 }
 
 func TestDrawDivisionStandingsMonochromeUsesLightGray(t *testing.T) {
@@ -122,6 +125,9 @@ func TestDrawDivisionStandingsMonochromeUsesLightGray(t *testing.T) {
 	ruleY := divisionStandingsTopPadding + divisionStandingsTitleH + divisionStandingsTitleRuleGap
 	if got := canvas.pix[ruleY*canvas.w+1]; got != want {
 		t.Fatalf("expected divider pixel to be %+v, got %+v", want, got)
+	}
+	if got := canvas.pix[(ruleY+1)*canvas.w+divisionStandingsLineX]; got != want {
+		t.Fatalf("expected first vertical line pixel below header to be %+v, got %+v", want, got)
 	}
 	nameY := divisionStandingsTopPadding + divisionStandingsTitleH + divisionStandingsTitleGap
 	if got := canvas.pix[nameY*canvas.w+divisionStandingsTeamX]; got != want {
