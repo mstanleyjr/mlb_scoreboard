@@ -991,12 +991,12 @@ func drawLiveGameStaticTop(c PixelCanvas, game ScoreboardLiveGame) {
 		{text: " @ ", col: white},
 		{text: homeAbbr, col: homeColor},
 	})
-	drawText5x8CenteredSegmentsInRangeAtOffset(c, 0, 48, 0, 9, []text5x8Segment{
+	drawText5x8CenteredSegmentsInRangeAtOffset(c, -3, 48, 0, 9, []text5x8Segment{
 		{text: fmt.Sprintf("%d", game.AwayTeam.Runs), col: awayColor},
 		{text: " - ", col: white},
 		{text: fmt.Sprintf("%d", game.HomeTeam.Runs), col: homeColor},
 	})
-	DrawBases(c, 53, 15, &game.Bases)
+	DrawBases(c, 50, 15, &game.Bases)
 	drawLiveGameStatusRow(c, 18, game, grey, white)
 }
 
