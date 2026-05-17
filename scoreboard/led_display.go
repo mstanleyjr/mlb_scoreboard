@@ -344,6 +344,13 @@ func drawNextMatchupPanel(c PixelCanvas, m ScoreboardNextMatchup, panelIndex int
 	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
 	grey := color.RGBA{R: 160, G: 160, B: 160, A: 255}
 	green := color.RGBA{R: 100, G: 200, B: 100, A: 255}
+	awayAccent := color.RGBA{R: 120, G: 180, B: 255, A: 255}
+	homeAccent := color.RGBA{R: 120, G: 255, B: 140, A: 255}
+
+	awayAbbr := teamAbbrev(m.AwayTeam.ShortName, m.AwayTeam.Name)
+	homeAbbr := teamAbbrev(m.HomeTeam.ShortName, m.HomeTeam.Name)
+	awayCol := GetTeamColor(m.AwayTeam.Name)
+	homeCol := GetTeamColor(m.HomeTeam.Name)
 
 	switch panelIndex {
 	case 0:
@@ -354,7 +361,11 @@ func drawNextMatchupPanel(c PixelCanvas, m ScoreboardNextMatchup, panelIndex int
 		drawText5x8CenteredAtOffset(c, xOffset, 1, header, yellow)
 		drawText5x8CenteredAtOffset(c, xOffset, 13, formatNextMatchupDateLine(m.DateTime), green)
 		drawText5x8CenteredAtOffset(c, xOffset, 23, formatNextMatchupTimeLine(m.DateTime), green)
-		drawText5x8CenteredAtOffset(c, xOffset, 35, strings.ToUpper(nextMatchupMatchupLine(m)), white)
+		drawText5x8CenteredSegmentsAtOffset(c, xOffset, 35, []text5x8Segment{
+			{text: awayAbbr, col: awayCol},
+			{text: " @ ", col: white},
+			{text: homeAbbr, col: homeCol},
+		})
 
 		venueLines := formatVenueLines(strings.ToUpper(m.Venue), 12, 2)
 		if len(venueLines) == 1 {
@@ -364,13 +375,19 @@ func drawNextMatchupPanel(c PixelCanvas, m ScoreboardNextMatchup, panelIndex int
 			drawText5x8CenteredAtOffset(c, xOffset, 56, venueLines[1], grey)
 		}
 	case 1:
-		drawText5x8CenteredAtOffset(c, xOffset, 1, "AWAY", yellow)
-		drawText5x8CenteredAtOffset(c, xOffset, 16, strings.ToUpper(nextMatchupTeamRecordLine(m.AwayTeam)), white)
+		drawText5x8CenteredAtOffset(c, xOffset, 1, "AWAY", awayAccent)
+		drawText5x8CenteredSegmentsAtOffset(c, xOffset, 16, []text5x8Segment{
+			{text: awayAbbr, col: awayCol},
+			{text: " " + strings.ToUpper(nextMatchupTeamRecordValue(m.AwayTeam)), col: white},
+		})
 		drawText5x8CenteredAtOffset(c, xOffset, 34, strings.ToUpper(nextMatchupPitcherNameLine(m.AwayTeam.ProbablePitcher)), white)
 		drawText5x8CenteredAtOffset(c, xOffset, 47, strings.ToUpper(nextMatchupPitcherDetailLine(m.AwayTeam.ProbablePitcher)), grey)
 	case 2:
-		drawText5x8CenteredAtOffset(c, xOffset, 1, "HOME", yellow)
-		drawText5x8CenteredAtOffset(c, xOffset, 16, strings.ToUpper(nextMatchupTeamRecordLine(m.HomeTeam)), white)
+		drawText5x8CenteredAtOffset(c, xOffset, 1, "HOME", homeAccent)
+		drawText5x8CenteredSegmentsAtOffset(c, xOffset, 16, []text5x8Segment{
+			{text: homeAbbr, col: homeCol},
+			{text: " " + strings.ToUpper(nextMatchupTeamRecordValue(m.HomeTeam)), col: white},
+		})
 		drawText5x8CenteredAtOffset(c, xOffset, 34, strings.ToUpper(nextMatchupPitcherNameLine(m.HomeTeam.ProbablePitcher)), white)
 		drawText5x8CenteredAtOffset(c, xOffset, 47, strings.ToUpper(nextMatchupPitcherDetailLine(m.HomeTeam.ProbablePitcher)), grey)
 	}
@@ -436,8 +453,12 @@ func nextMatchupMatchupLine(m ScoreboardNextMatchup) string {
 }
 
 func nextMatchupTeamRecordLine(team ScoreboardNextMatchupTeam) string {
-	line := fmt.Sprintf("%s %d-%d", teamAbbrev(team.ShortName, team.Name), team.Record.Wins, team.Record.Losses)
+	line := fmt.Sprintf("%s %s", teamAbbrev(team.ShortName, team.Name), nextMatchupTeamRecordValue(team))
 	return trimText5x8ToWidth(line, 62)
+}
+
+func nextMatchupTeamRecordValue(team ScoreboardNextMatchupTeam) string {
+	return fmt.Sprintf("%d-%d", team.Record.Wins, team.Record.Losses)
 }
 
 func nextMatchupPitcherNameLine(p ScoreboardPitcher) string {
@@ -627,6 +648,27 @@ func drawText5x8CenteredAtOffset(c PixelCanvas, xOffset, y int, text string, col
 		x = xOffset
 	}
 	DrawText5x8(c, x, y, text, col)
+}
+
+type text5x8Segment struct {
+	text string
+	col  color.RGBA
+}
+
+func drawText5x8CenteredSegmentsAtOffset(c PixelCanvas, xOffset, y int, segments []text5x8Segment) {
+	panelWidth := c.Bounds().Max.X
+	totalWidth := 0
+	for _, segment := range segments {
+		totalWidth += measureText5x8Width(segment.text)
+	}
+	x := xOffset + (panelWidth-totalWidth)/2
+	if x < xOffset {
+		x = xOffset
+	}
+	for _, segment := range segments {
+		DrawText5x8(c, x, y, segment.text, segment.col)
+		x += measureText5x8Width(segment.text)
+	}
 }
 
 func drawTextRightAligned(c PixelCanvas, rightX, y int, text string, col color.RGBA) {
