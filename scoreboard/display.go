@@ -611,7 +611,7 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 	}
 	fmt.Printf("displayinfo %+v\n", displayInfo)
 
-	playLastMatchup(displayInfo, controller, 2500*time.Millisecond, 500*time.Millisecond, 50*time.Millisecond)
+	playLastMatchup(displayInfo, controller, lastMatchupHoldDuration, lastMatchupSlideDuration, 50*time.Millisecond)
 	fmt.Println("Finished displaying last completed matchup.")
 }
 

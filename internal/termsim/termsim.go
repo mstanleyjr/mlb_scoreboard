@@ -31,6 +31,8 @@ type Options struct {
 	DivisionStandingsGreenBG    bool
 	NextMatchupHoldMS           int
 	NextMatchupSlideMS          int
+	LastMatchupHoldMS           int
+	LastMatchupSlideMS          int
 }
 
 type Matrix struct {
@@ -99,6 +101,8 @@ func RunCLI(args []string) error {
 		DivisionStandingsGreenBG:    cfg.DivisionStandings.GreenBackground,
 		NextMatchupHoldMS:           cfg.NextMatchup.HoldMS,
 		NextMatchupSlideMS:          cfg.NextMatchup.SlideMS,
+		LastMatchupHoldMS:           cfg.LastMatchup.HoldMS,
+		LastMatchupSlideMS:          cfg.LastMatchup.SlideMS,
 	}
 	if visited["empty"] {
 		opts.Empty = *empty
@@ -128,6 +132,8 @@ func RunCLI(args []string) error {
 		DivisionStandingsGreenBG:    opts.DivisionStandingsGreenBG,
 		NextMatchupHoldMS:           opts.NextMatchupHoldMS,
 		NextMatchupSlideMS:          opts.NextMatchupSlideMS,
+		LastMatchupHoldMS:           opts.LastMatchupHoldMS,
+		LastMatchupSlideMS:          opts.LastMatchupSlideMS,
 	})
 }
 
@@ -145,6 +151,7 @@ func Run(parent context.Context, opts Options) error {
 	scoreboard.SetDivisionStandingsMonochrome(opts.DivisionStandingsMonochrome)
 	scoreboard.SetDivisionStandingsGreenBackground(opts.DivisionStandingsGreenBG)
 	scoreboard.SetNextMatchupTiming(opts.NextMatchupHoldMS, opts.NextMatchupSlideMS)
+	scoreboard.SetLastMatchupTiming(opts.LastMatchupHoldMS, opts.LastMatchupSlideMS)
 
 	var wg sync.WaitGroup
 	controller := &scoreboard.DisplayController{}

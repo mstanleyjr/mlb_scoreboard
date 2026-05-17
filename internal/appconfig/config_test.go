@@ -28,6 +28,9 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 		"next_matchup": {
 			"hold_ms": 3000
 		},
+		"last_matchup": {
+			"slide_ms": 700
+		},
 		"termsim": {
 			"fps": 10
 		}
@@ -45,6 +48,9 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 	}
 	if cfg.NextMatchup.HoldMS != 3000 || cfg.NextMatchup.SlideMS != 500 {
 		t.Fatalf("expected next matchup config to merge with defaults, got %+v", cfg.NextMatchup)
+	}
+	if cfg.LastMatchup.HoldMS != 2500 || cfg.LastMatchup.SlideMS != 700 {
+		t.Fatalf("expected last matchup config to merge with defaults, got %+v", cfg.LastMatchup)
 	}
 	if cfg.Termsim.FPS != 10 {
 		t.Fatalf("expected termsim fps 10, got %d", cfg.Termsim.FPS)

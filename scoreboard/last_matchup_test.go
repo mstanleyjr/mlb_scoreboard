@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+func TestSetLastMatchupTimingDefaults(t *testing.T) {
+	SetLastMatchupTiming(0, 0)
+	if lastMatchupHoldDuration != 2500*time.Millisecond || lastMatchupSlideDuration != 500*time.Millisecond {
+		t.Fatalf("expected default last matchup timing, got hold=%s slide=%s", lastMatchupHoldDuration, lastMatchupSlideDuration)
+	}
+}
+
 func TestDrawLastMatchupFrameStaticTopAndRecordsPanel(t *testing.T) {
 	canvas := NewMockCanvas(64, 64)
 	matchup := ScoreboardLastMatchup{

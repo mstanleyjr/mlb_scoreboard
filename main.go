@@ -50,6 +50,7 @@ func main() {
 	scoreboard.SetDivisionStandingsMonochrome(monochrome)
 	scoreboard.SetDivisionStandingsGreenBackground(greenBackground)
 	scoreboard.SetNextMatchupTiming(cfg.NextMatchup.HoldMS, cfg.NextMatchup.SlideMS)
+	scoreboard.SetLastMatchupTiming(cfg.LastMatchup.HoldMS, cfg.LastMatchup.SlideMS)
 
 	fmt.Println("HERE WE GOOOOO")
 

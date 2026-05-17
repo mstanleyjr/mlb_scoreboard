@@ -31,6 +31,8 @@ var divisionStandingsMonochrome bool
 var divisionStandingsGreenBackground bool
 var nextMatchupHoldDuration = 2500 * time.Millisecond
 var nextMatchupSlideDuration = 500 * time.Millisecond
+var lastMatchupHoldDuration = 2500 * time.Millisecond
+var lastMatchupSlideDuration = 500 * time.Millisecond
 
 type divisionStandingsPalette struct {
 	background color.RGBA
@@ -60,6 +62,17 @@ func SetNextMatchupTiming(holdMS, slideMS int) {
 	}
 	nextMatchupHoldDuration = time.Duration(holdMS) * time.Millisecond
 	nextMatchupSlideDuration = time.Duration(slideMS) * time.Millisecond
+}
+
+func SetLastMatchupTiming(holdMS, slideMS int) {
+	if holdMS <= 0 {
+		holdMS = 2500
+	}
+	if slideMS <= 0 {
+		slideMS = 500
+	}
+	lastMatchupHoldDuration = time.Duration(holdMS) * time.Millisecond
+	lastMatchupSlideDuration = time.Duration(slideMS) * time.Millisecond
 }
 
 func divisionStandingsColors() divisionStandingsPalette {
