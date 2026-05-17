@@ -3,7 +3,15 @@ package scoreboard
 import (
 	"image/color"
 	"testing"
+	"time"
 )
+
+func TestSetLiveGameTimingDefaults(t *testing.T) {
+	SetLiveGameTiming(0, 0)
+	if liveGameHoldDuration != 2200*time.Millisecond || liveGameSlideDuration != 400*time.Millisecond {
+		t.Fatalf("expected default live game timing, got hold=%s slide=%s", liveGameHoldDuration, liveGameSlideDuration)
+	}
+}
 
 func TestDrawLiveGameFrameStaticTopAndRHELPanel(t *testing.T) {
 	canvas := NewMockCanvas(64, 64)
@@ -42,6 +50,9 @@ func TestDrawLiveGameFrameStaticTopAndRHELPanel(t *testing.T) {
 	if countColorInBand(canvas, grey, 18, 25) == 0 {
 		t.Fatalf("expected inning/count status line to render")
 	}
+	if countColorInBand(canvas, white, 18, 25) == 0 {
+		t.Fatalf("expected filled out circles to render in status line")
+	}
 	if countColorInBand(canvas, baseFill, 8, 18) == 0 {
 		t.Fatalf("expected occupied bases to render in static top")
 	}
@@ -53,8 +64,9 @@ func TestDrawLiveGameFrameStaticTopAndRHELPanel(t *testing.T) {
 func TestDrawLiveGameFrameBatterPanel(t *testing.T) {
 	canvas := NewMockCanvas(64, 64)
 	game := ScoreboardLiveGame{
-		AwayTeam: ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
-		HomeTeam: ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		AwayTeam:   ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:   ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		HalfInning: "bottom",
 		CurrentBatter: ScoreboardLiveGameBatter{
 			FullName:             "CJ Abrams",
 			LastName:             "Abrams",
@@ -71,10 +83,11 @@ func TestDrawLiveGameFrameBatterPanel(t *testing.T) {
 		NextPanelIndex: -1,
 	})
 
+	batterTeam := GetTeamColor(game.HomeTeam.Name)
 	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
 	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
-	if countColorInBand(canvas, white, 28, 35) == 0 {
-		t.Fatalf("expected batter name to render")
+	if countColorInBand(canvas, batterTeam, 28, 35) == 0 {
+		t.Fatalf("expected batter name to render in batting team color")
 	}
 	if countColorInBand(canvas, grey, 37, 53) == 0 {
 		t.Fatalf("expected batter detail lines to render")
@@ -87,8 +100,9 @@ func TestDrawLiveGameFrameBatterPanel(t *testing.T) {
 func TestDrawLiveGameFramePitcherPanel(t *testing.T) {
 	canvas := NewMockCanvas(64, 64)
 	game := ScoreboardLiveGame{
-		AwayTeam: ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
-		HomeTeam: ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		AwayTeam:   ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:   ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		HalfInning: "bottom",
 		CurrentPitcher: ScoreboardPitcher{
 			FullName: "Dylan Tate",
 			LastName: "Tate",
@@ -105,10 +119,11 @@ func TestDrawLiveGameFramePitcherPanel(t *testing.T) {
 		NextPanelIndex: -1,
 	})
 
+	pitcherTeam := GetTeamColor(game.AwayTeam.Name)
 	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
 	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
-	if countColorInBand(canvas, white, 28, 35) == 0 {
-		t.Fatalf("expected pitcher name to render")
+	if countColorInBand(canvas, pitcherTeam, 28, 35) == 0 {
+		t.Fatalf("expected pitcher name to render in fielding team color")
 	}
 	if countColorInBand(canvas, grey, 37, 53) == 0 {
 		t.Fatalf("expected pitcher detail lines to render")
@@ -132,8 +147,12 @@ func TestDrawLiveGameFrameLastPlayPanel(t *testing.T) {
 		NextPanelIndex: -1,
 	})
 
+	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
 	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
-	if countColorInBand(canvas, orange, 28, 62) == 0 {
+	if countColorInBand(canvas, grey, 28, 35) == 0 {
+		t.Fatalf("expected last play title to render")
+	}
+	if countColorInBand(canvas, orange, 37, 62) == 0 {
 		t.Fatalf("expected last play text to render")
 	}
 }

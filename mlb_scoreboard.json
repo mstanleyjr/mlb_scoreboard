@@ -3,6 +3,10 @@
     "monochrome": false,
     "green_background": false
   },
+  "live_game": {
+    "hold_ms": 2200,
+    "slide_ms": 400
+  },
   "next_matchup": {
     "hold_ms": 3000,
     "slide_ms": 600

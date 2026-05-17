@@ -25,6 +25,9 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 			"monochrome": true,
 			"green_background": true
 		},
+		"live_game": {
+			"hold_ms": 1800
+		},
 		"next_matchup": {
 			"hold_ms": 3000
 		},
@@ -45,6 +48,9 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 
 	if !cfg.DivisionStandings.Monochrome || !cfg.DivisionStandings.GreenBackground {
 		t.Fatalf("expected division standings config to load, got %+v", cfg.DivisionStandings)
+	}
+	if cfg.LiveGame.HoldMS != 1800 || cfg.LiveGame.SlideMS != 400 {
+		t.Fatalf("expected live game config to merge with defaults, got %+v", cfg.LiveGame)
 	}
 	if cfg.NextMatchup.HoldMS != 3000 || cfg.NextMatchup.SlideMS != 500 {
 		t.Fatalf("expected next matchup config to merge with defaults, got %+v", cfg.NextMatchup)

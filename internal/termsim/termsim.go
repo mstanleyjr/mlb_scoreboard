@@ -29,6 +29,8 @@ type Options struct {
 	RulerY                      int
 	DivisionStandingsMonochrome bool
 	DivisionStandingsGreenBG    bool
+	LiveGameHoldMS              int
+	LiveGameSlideMS             int
 	NextMatchupHoldMS           int
 	NextMatchupSlideMS          int
 	LastMatchupHoldMS           int
@@ -99,6 +101,8 @@ func RunCLI(args []string) error {
 		RulerY:                      cfg.Termsim.RulerY,
 		DivisionStandingsMonochrome: cfg.DivisionStandings.Monochrome,
 		DivisionStandingsGreenBG:    cfg.DivisionStandings.GreenBackground,
+		LiveGameHoldMS:              cfg.LiveGame.HoldMS,
+		LiveGameSlideMS:             cfg.LiveGame.SlideMS,
 		NextMatchupHoldMS:           cfg.NextMatchup.HoldMS,
 		NextMatchupSlideMS:          cfg.NextMatchup.SlideMS,
 		LastMatchupHoldMS:           cfg.LastMatchup.HoldMS,
@@ -130,6 +134,8 @@ func RunCLI(args []string) error {
 		RulerY:                      opts.RulerY,
 		DivisionStandingsMonochrome: opts.DivisionStandingsMonochrome,
 		DivisionStandingsGreenBG:    opts.DivisionStandingsGreenBG,
+		LiveGameHoldMS:              opts.LiveGameHoldMS,
+		LiveGameSlideMS:             opts.LiveGameSlideMS,
 		NextMatchupHoldMS:           opts.NextMatchupHoldMS,
 		NextMatchupSlideMS:          opts.NextMatchupSlideMS,
 		LastMatchupHoldMS:           opts.LastMatchupHoldMS,
@@ -150,6 +156,7 @@ func Run(parent context.Context, opts Options) error {
 	}
 	scoreboard.SetDivisionStandingsMonochrome(opts.DivisionStandingsMonochrome)
 	scoreboard.SetDivisionStandingsGreenBackground(opts.DivisionStandingsGreenBG)
+	scoreboard.SetLiveGameTiming(opts.LiveGameHoldMS, opts.LiveGameSlideMS)
 	scoreboard.SetNextMatchupTiming(opts.NextMatchupHoldMS, opts.NextMatchupSlideMS)
 	scoreboard.SetLastMatchupTiming(opts.LastMatchupHoldMS, opts.LastMatchupSlideMS)
 
