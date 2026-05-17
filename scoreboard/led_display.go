@@ -352,27 +352,27 @@ func drawNextMatchupPanel(c PixelCanvas, m ScoreboardNextMatchup, panelIndex int
 			header = trimText5x8ToWidth(strings.ToUpper("NEXT "+m.GameType), c.Bounds().Max.X-2)
 		}
 		drawText5x8CenteredAtOffset(c, xOffset, 1, header, yellow)
-		drawText5x8CenteredAtOffset(c, xOffset, 12, formatNextMatchupDateLine(m.DateTime), green)
-		drawText5x8CenteredAtOffset(c, xOffset, 23, formatNextMatchupTimeLine(m.DateTime), green)
-		drawText5x8CenteredAtOffset(c, xOffset, 34, strings.ToUpper(nextMatchupMatchupLine(m)), white)
+		drawText5x8CenteredAtOffset(c, xOffset, 16, formatNextMatchupDateLine(m.DateTime), green)
+		drawText5x8CenteredAtOffset(c, xOffset, 27, formatNextMatchupTimeLine(m.DateTime), green)
+		drawText5x8CenteredAtOffset(c, xOffset, 40, strings.ToUpper(nextMatchupMatchupLine(m)), white)
 
-		venueLines := formatVenueLines(strings.ToUpper(m.Venue), 10, 2)
+		venueLines := formatVenueLines(strings.ToUpper(m.Venue), 12, 2)
 		if len(venueLines) == 1 {
-			drawText5x8CenteredAtOffset(c, xOffset, 50, venueLines[0], grey)
+			drawText5x8CenteredAtOffset(c, xOffset, 54, venueLines[0], grey)
 		} else if len(venueLines) >= 2 {
 			drawText5x8CenteredAtOffset(c, xOffset, 45, venueLines[0], grey)
 			drawText5x8CenteredAtOffset(c, xOffset, 54, venueLines[1], grey)
 		}
 	case 1:
-		drawText5x8CenteredAtOffset(c, xOffset, 1, "AWAY", yellow)
-		drawText5x8CenteredAtOffset(c, xOffset, 14, strings.ToUpper(nextMatchupTeamRecordLine(m.AwayTeam)), white)
-		drawText5x8CenteredAtOffset(c, xOffset, 27, strings.ToUpper(nextMatchupPitcherNameLine(m.AwayTeam.ProbablePitcher)), white)
-		drawText5x8CenteredAtOffset(c, xOffset, 40, strings.ToUpper(nextMatchupPitcherDetailLine(m.AwayTeam.ProbablePitcher)), grey)
+		DrawText5x8(c, xOffset+2, 1, "AWAY", yellow)
+		DrawText5x8(c, xOffset+2, 16, strings.ToUpper(nextMatchupTeamRecordLine(m.AwayTeam)), white)
+		DrawText5x8(c, xOffset+2, 34, strings.ToUpper(nextMatchupPitcherNameLine(m.AwayTeam.ProbablePitcher)), white)
+		DrawText5x8(c, xOffset+2, 47, strings.ToUpper(nextMatchupPitcherDetailLine(m.AwayTeam.ProbablePitcher)), grey)
 	case 2:
-		drawText5x8CenteredAtOffset(c, xOffset, 1, "HOME", yellow)
-		drawText5x8CenteredAtOffset(c, xOffset, 14, strings.ToUpper(nextMatchupTeamRecordLine(m.HomeTeam)), white)
-		drawText5x8CenteredAtOffset(c, xOffset, 27, strings.ToUpper(nextMatchupPitcherNameLine(m.HomeTeam.ProbablePitcher)), white)
-		drawText5x8CenteredAtOffset(c, xOffset, 40, strings.ToUpper(nextMatchupPitcherDetailLine(m.HomeTeam.ProbablePitcher)), grey)
+		DrawText5x8(c, xOffset+2, 1, "HOME", yellow)
+		DrawText5x8(c, xOffset+2, 16, strings.ToUpper(nextMatchupTeamRecordLine(m.HomeTeam)), white)
+		DrawText5x8(c, xOffset+2, 34, strings.ToUpper(nextMatchupPitcherNameLine(m.HomeTeam.ProbablePitcher)), white)
+		DrawText5x8(c, xOffset+2, 47, strings.ToUpper(nextMatchupPitcherDetailLine(m.HomeTeam.ProbablePitcher)), grey)
 	}
 }
 
