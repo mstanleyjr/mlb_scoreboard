@@ -31,6 +31,14 @@ go run ./cmd/termsim
 sudo -E go run -tags pi .
 ```
 
+Startup settings are read from `mlb_scoreboard.json` in the repo root by default. You can point at another file with `-config`, and any explicitly passed flags still override the config file.
+
+Example:
+
+```bash
+sudo -E go run -tags pi . -config /path/to/mlb_scoreboard.json
+```
+
 ## Custom Terminal Matrix Simulator (No rgbmatrix emulator)
 Print a 64x64 matrix directly in terminal using:
 - `R`, `G`, `B` for colored pixels
@@ -39,7 +47,7 @@ Print a 64x64 matrix directly in terminal using:
 ```bash
 go run ./cmd/termsim
 go run ./cmd/termsim --empty=-
-go run ./cmd/termsim --league="AL West"
+go run ./cmd/termsim -config /path/to/mlb_scoreboard.json
 ```
 
 Use this for fast layout tuning on macOS without the Pi hardware path.

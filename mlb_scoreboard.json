@@ -1,0 +1,12 @@
+{
+  "division_standings": {
+    "monochrome": true,
+    "green_background": true
+  },
+  "termsim": {
+    "empty": " ",
+    "fps": 3,
+    "show_grid": false,
+    "ruler_y": -1
+  }
+}

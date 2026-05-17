@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mstanleyjr/mlb_scoreboard/internal/appconfig"
 	"github.com/mstanleyjr/mlb_scoreboard/scoreboard"
 )
 
@@ -68,24 +69,59 @@ func RunCLI(args []string) error {
 	fs := flag.NewFlagSet("mlb_scoreboard", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 
-	empty := fs.String("empty", " ", "character for empty pixels (e.g. ' ' or '-')")
-	fps := fs.Int("fps", 3, "terminal refresh rate (frames per second)")
-	showGrid := fs.Bool("grid", false, "overlay an 8x8 debug grid")
-	rulerY := fs.Int("ruler-y", -1, "draw a horizontal ruler at this y (0-63), -1 to disable")
-	divisionStandingsMonochrome := fs.Bool("division-standings-monochrome", false, "render division standings text and dividers in light gray")
-	divisionStandingsGreenBG := fs.Bool("division-standings-green-background", false, "render division standings with a dark scoreboard green background")
+	defaults := appconfig.DefaultConfig()
+	configPath := fs.String("config", appconfig.DefaultPath, "path to startup config file")
+	empty := fs.String("empty", defaults.Termsim.Empty, "character for empty pixels (e.g. ' ' or '-')")
+	fps := fs.Int("fps", defaults.Termsim.FPS, "terminal refresh rate (frames per second)")
+	showGrid := fs.Bool("grid", defaults.Termsim.ShowGrid, "overlay an 8x8 debug grid")
+	rulerY := fs.Int("ruler-y", defaults.Termsim.RulerY, "draw a horizontal ruler at this y (0-63), -1 to disable")
+	divisionStandingsMonochrome := fs.Bool("division-standings-monochrome", defaults.DivisionStandings.Monochrome, "render division standings text and dividers in light gray")
+	divisionStandingsGreenBG := fs.Bool("division-standings-green-background", defaults.DivisionStandings.GreenBackground, "render division standings with a dark scoreboard green background")
 
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
+	cfg, err := appconfig.Load(*configPath)
+	if err != nil {
+		return err
+	}
+
+	visited := visitedFlags(fs)
+	opts := Options{
+		Empty:                       cfg.Termsim.Empty,
+		FPS:                         cfg.Termsim.FPS,
+		ShowGrid:                    cfg.Termsim.ShowGrid,
+		RulerY:                      cfg.Termsim.RulerY,
+		DivisionStandingsMonochrome: cfg.DivisionStandings.Monochrome,
+		DivisionStandingsGreenBG:    cfg.DivisionStandings.GreenBackground,
+	}
+	if visited["empty"] {
+		opts.Empty = *empty
+	}
+	if visited["fps"] {
+		opts.FPS = *fps
+	}
+	if visited["grid"] {
+		opts.ShowGrid = *showGrid
+	}
+	if visited["ruler-y"] {
+		opts.RulerY = *rulerY
+	}
+	if visited["division-standings-monochrome"] {
+		opts.DivisionStandingsMonochrome = *divisionStandingsMonochrome
+	}
+	if visited["division-standings-green-background"] {
+		opts.DivisionStandingsGreenBG = *divisionStandingsGreenBG
+	}
+
 	return Run(context.Background(), Options{
-		Empty:                       *empty,
-		FPS:                         *fps,
-		ShowGrid:                    *showGrid,
-		RulerY:                      *rulerY,
-		DivisionStandingsMonochrome: *divisionStandingsMonochrome,
-		DivisionStandingsGreenBG:    *divisionStandingsGreenBG,
+		Empty:                       opts.Empty,
+		FPS:                         opts.FPS,
+		ShowGrid:                    opts.ShowGrid,
+		RulerY:                      opts.RulerY,
+		DivisionStandingsMonochrome: opts.DivisionStandingsMonochrome,
+		DivisionStandingsGreenBG:    opts.DivisionStandingsGreenBG,
 	})
 }
 
@@ -191,6 +227,14 @@ func drawLoadingScreen(m *Matrix) {
 		y = 0
 	}
 	scoreboard.DrawText5x8Centered(m, y, text, color.RGBA{R: 255, G: 255, B: 0, A: 255})
+}
+
+func visitedFlags(fs *flag.FlagSet) map[string]bool {
+	visited := make(map[string]bool)
+	fs.Visit(func(f *flag.Flag) {
+		visited[f.Name] = true
+	})
+	return visited
 }
 
 func drawTestPattern(m *Matrix) {

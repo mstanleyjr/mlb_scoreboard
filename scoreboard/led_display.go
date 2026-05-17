@@ -14,6 +14,7 @@ const (
 	divisionStandingsTitleGap      = 6
 	divisionStandingsTitleRuleGap  = 3
 	divisionStandingsRowBlockH     = 19
+	divisionStandingsRowGap        = 1
 	divisionStandingsRankX         = 1
 	divisionStandingsLineX         = 7
 	divisionStandingsTeamX         = 10
@@ -134,7 +135,7 @@ func DrawDivisionStandings(c PixelCanvas, division ScoreboardDivision) {
 				DrawText5x8(c, divisionStandingsRecordX, statsY, record, palette.record)
 				drawText5x8RightAligned(c, divisionStandingsGBRightX, statsY, gb, palette.gamesBack)
 
-				lineTop := nameY
+				lineTop := nameY - divisionStandingsRowGap
 				if teamIndex == 0 {
 					lineTop = titleRuleY + 1
 				}
@@ -153,6 +154,9 @@ func DrawDivisionStandings(c PixelCanvas, division ScoreboardDivision) {
 			}
 
 			contentY += divisionStandingsRowBlockH
+			if teamIndex < len(section.Teams)-1 {
+				contentY += divisionStandingsRowGap
+			}
 		}
 
 		contentY += divisionStandingsSectionGap
@@ -186,6 +190,9 @@ func divisionStandingsContentHeight(displayInfo ScoreboardDivision) int {
 	for sectionIndex, section := range displayInfo.Sections {
 		height += divisionStandingsTitleH + divisionStandingsTitleGap
 		height += len(section.Teams) * divisionStandingsRowBlockH
+		if len(section.Teams) > 1 {
+			height += (len(section.Teams) - 1) * divisionStandingsRowGap
+		}
 		if sectionIndex < len(displayInfo.Sections)-1 {
 			height += divisionStandingsSectionGap
 		}

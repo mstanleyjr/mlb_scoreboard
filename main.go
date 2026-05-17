@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mstanleyjr/mlb_scoreboard/internal/appconfig"
 	"github.com/mstanleyjr/mlb_scoreboard/scoreboard"
 	rgbmatrix "github.com/tfk1410/go-rpi-rgb-led-matrix"
 )
@@ -24,12 +25,30 @@ var (
 )
 
 func main() {
-	divisionStandingsMonochrome := flag.Bool("division-standings-monochrome", false, "render division standings text and dividers in light gray")
-	divisionStandingsGreenBackground := flag.Bool("division-standings-green-background", false, "render division standings with a dark scoreboard green background")
+	defaults := appconfig.DefaultConfig()
+	configPath := flag.String("config", appconfig.DefaultPath, "path to startup config file")
+	divisionStandingsMonochrome := flag.Bool("division-standings-monochrome", defaults.DivisionStandings.Monochrome, "render division standings text and dividers in light gray")
+	divisionStandingsGreenBackground := flag.Bool("division-standings-green-background", defaults.DivisionStandings.GreenBackground, "render division standings with a dark scoreboard green background")
 	flag.Parse()
 
-	scoreboard.SetDivisionStandingsMonochrome(*divisionStandingsMonochrome)
-	scoreboard.SetDivisionStandingsGreenBackground(*divisionStandingsGreenBackground)
+	cfg, err := appconfig.Load(*configPath)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	visited := visitedFlags(flag.CommandLine)
+	monochrome := cfg.DivisionStandings.Monochrome
+	if visited["division-standings-monochrome"] {
+		monochrome = *divisionStandingsMonochrome
+	}
+	greenBackground := cfg.DivisionStandings.GreenBackground
+	if visited["division-standings-green-background"] {
+		greenBackground = *divisionStandingsGreenBackground
+	}
+
+	scoreboard.SetDivisionStandingsMonochrome(monochrome)
+	scoreboard.SetDivisionStandingsGreenBackground(greenBackground)
 
 	fmt.Println("HERE WE GOOOOO")
 
@@ -45,7 +64,6 @@ func main() {
 		config.Rows, config.Cols, config.HardwareMapping, config.DisableHardwarePulsing)
 
 	// Create RGB LED matrix
-	var err error
 	matrix, err := rgbmatrix.NewRGBLedMatrix(config)
 	if err != nil {
 		fmt.Printf("Error creating matrix: %v\n", err)
@@ -134,6 +152,14 @@ func main() {
 	wg.Wait()
 
 	fmt.Println("Scoreboard shutdown complete")
+}
+
+func visitedFlags(fs *flag.FlagSet) map[string]bool {
+	visited := make(map[string]bool)
+	fs.Visit(func(f *flag.Flag) {
+		visited[f.Name] = true
+	})
+	return visited
 }
 
 // DrawTestPattern draws a simple test pattern to verify the display is working
