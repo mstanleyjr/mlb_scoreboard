@@ -5,8 +5,8 @@
   },
   "next_matchup": {
     "version": "v2",
-    "hold_ms": 2500,
-    "slide_ms": 500
+    "hold_ms": 3000,
+    "slide_ms": 600
   },
   "termsim": {
     "empty": " ",
