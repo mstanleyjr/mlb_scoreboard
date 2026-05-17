@@ -352,16 +352,16 @@ func drawNextMatchupPanel(c PixelCanvas, m ScoreboardNextMatchup, panelIndex int
 			header = trimText5x8ToWidth(strings.ToUpper("NEXT "+m.GameType), c.Bounds().Max.X-2)
 		}
 		drawText5x8CenteredAtOffset(c, xOffset, 1, header, yellow)
-		drawText5x8CenteredAtOffset(c, xOffset, 16, formatNextMatchupDateLine(m.DateTime), green)
-		drawText5x8CenteredAtOffset(c, xOffset, 27, formatNextMatchupTimeLine(m.DateTime), green)
-		drawText5x8CenteredAtOffset(c, xOffset, 40, strings.ToUpper(nextMatchupMatchupLine(m)), white)
+		drawText5x8CenteredAtOffset(c, xOffset, 13, formatNextMatchupDateLine(m.DateTime), green)
+		drawText5x8CenteredAtOffset(c, xOffset, 23, formatNextMatchupTimeLine(m.DateTime), green)
+		drawText5x8CenteredAtOffset(c, xOffset, 35, strings.ToUpper(nextMatchupMatchupLine(m)), white)
 
 		venueLines := formatVenueLines(strings.ToUpper(m.Venue), 12, 2)
 		if len(venueLines) == 1 {
 			drawText5x8CenteredAtOffset(c, xOffset, 54, venueLines[0], grey)
 		} else if len(venueLines) >= 2 {
-			drawText5x8CenteredAtOffset(c, xOffset, 45, venueLines[0], grey)
-			drawText5x8CenteredAtOffset(c, xOffset, 54, venueLines[1], grey)
+			drawText5x8CenteredAtOffset(c, xOffset, 47, venueLines[0], grey)
+			drawText5x8CenteredAtOffset(c, xOffset, 56, venueLines[1], grey)
 		}
 	case 1:
 		drawText5x8CenteredAtOffset(c, xOffset, 1, "AWAY", yellow)
