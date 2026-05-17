@@ -83,6 +83,13 @@ type ScoreboardLastMatchup struct {
 	SavePitcherLastName    string
 }
 
+type ScoreboardLastMatchupFrame struct {
+	Matchup        ScoreboardLastMatchup
+	PanelIndex     int
+	NextPanelIndex int
+	SlideOffset    int
+}
+
 type ScoreboardLastMatchupTeam struct {
 	Team   ScoreboardLiveGameTeam
 	Winner bool

@@ -134,6 +134,8 @@ func main() {
 			case scoreboard.DisplayTypeLastMatchup:
 				if last, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardLastMatchup); ok {
 					scoreboard.DrawLastMatchup(canvas, last)
+				} else if frame, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardLastMatchupFrame); ok {
+					scoreboard.DrawLastMatchupFrame(canvas, frame)
 				}
 			default:
 				DrawTestPattern(canvas)

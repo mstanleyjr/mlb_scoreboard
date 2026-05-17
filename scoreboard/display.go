@@ -611,13 +611,61 @@ func LastMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 	}
 	fmt.Printf("displayinfo %+v\n", displayInfo)
 
+	playLastMatchup(displayInfo, controller, 2500*time.Millisecond, 500*time.Millisecond, 50*time.Millisecond)
+	fmt.Println("Finished displaying last completed matchup.")
+}
+
+func playLastMatchup(displayInfo ScoreboardLastMatchup, controller *DisplayController, holdDuration, slideDuration, frameInterval time.Duration) {
+	if frameInterval <= 0 {
+		frameInterval = 50 * time.Millisecond
+	}
+
+	panelCount := lastMatchupPanelCount()
+	if panelCount == 0 {
+		return
+	}
+
+	holdFrames := durationFrames(holdDuration, frameInterval)
+	slideFrames := durationFrames(slideDuration, frameInterval)
+	canvasWidth := 64
+
+	for panel := 0; panel < panelCount; panel++ {
+		state := ScoreboardLastMatchupFrame{
+			Matchup:        displayInfo,
+			PanelIndex:     panel,
+			NextPanelIndex: -1,
+			SlideOffset:    0,
+		}
+		for frame := 0; frame < holdFrames; frame++ {
+			setLastMatchupDisplayState(state)
+			if frame == holdFrames-1 && panel == panelCount-1 {
+				return
+			}
+			waitDisplayFrame(controller, frameInterval)
+		}
+
+		if panel == panelCount-1 {
+			return
+		}
+
+		for frame := 0; frame < slideFrames; frame++ {
+			state := ScoreboardLastMatchupFrame{
+				Matchup:        displayInfo,
+				PanelIndex:     panel,
+				NextPanelIndex: panel + 1,
+				SlideOffset:    easedSlideOffset(frame+1, slideFrames, canvasWidth),
+			}
+			setLastMatchupDisplayState(state)
+			waitDisplayFrame(controller, frameInterval)
+		}
+	}
+}
+
+func setLastMatchupDisplayState(displayInfo ScoreboardLastMatchupFrame) {
 	DisplayMutex.Lock()
 	CurrentDisplayType = DisplayTypeLastMatchup
 	CurrentDisplayData = displayInfo
 	DisplayMutex.Unlock()
-
-	DisplayLoop(1*time.Second, time.Second*8, controller)
-	fmt.Println("Finished displaying last completed matchup.")
 }
 
 func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRestObject, info ScoreboardInformation, m *statsapi.MLBClient, controller *DisplayController) {

@@ -282,6 +282,8 @@ func renderCurrentDisplay(m *Matrix) {
 	case scoreboard.DisplayTypeLastMatchup:
 		if last, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardLastMatchup); ok {
 			scoreboard.DrawLastMatchup(m, last)
+		} else if frame, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardLastMatchupFrame); ok {
+			scoreboard.DrawLastMatchupFrame(m, frame)
 		}
 	default:
 		drawTestPattern(m)
