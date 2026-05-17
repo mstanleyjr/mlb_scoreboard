@@ -657,18 +657,39 @@ type text5x8Segment struct {
 
 func drawText5x8CenteredSegmentsAtOffset(c PixelCanvas, xOffset, y int, segments []text5x8Segment) {
 	panelWidth := c.Bounds().Max.X
-	totalWidth := 0
-	for _, segment := range segments {
-		totalWidth += measureText5x8Width(segment.text)
-	}
+	totalWidth := measureText5x8SegmentsWidth(segments)
 	x := xOffset + (panelWidth-totalWidth)/2
 	if x < xOffset {
 		x = xOffset
 	}
-	for _, segment := range segments {
-		DrawText5x8(c, x, y, segment.text, segment.col)
-		x += measureText5x8Width(segment.text)
+
+	type segmentRune struct {
+		ch  rune
+		col color.RGBA
 	}
+
+	var runes []segmentRune
+	for _, segment := range segments {
+		for _, ch := range []rune(segment.text) {
+			runes = append(runes, segmentRune{ch: ch, col: segment.col})
+		}
+	}
+	for i, r := range runes {
+		DrawText5x8(c, x, y, string(r.ch), r.col)
+		x += advance5x8(r.ch, i == len(runes)-1)
+	}
+}
+
+func measureText5x8SegmentsWidth(segments []text5x8Segment) int {
+	var runes []rune
+	for _, segment := range segments {
+		runes = append(runes, []rune(segment.text)...)
+	}
+	width := 0
+	for i, ch := range runes {
+		width += advance5x8(ch, i == len(runes)-1)
+	}
+	return width
 }
 
 func drawTextRightAligned(c PixelCanvas, rightX, y int, text string, col color.RGBA) {
