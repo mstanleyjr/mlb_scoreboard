@@ -352,13 +352,92 @@ func NextMatchupDisplay(ctx context.Context, info ScoreboardInformation, client 
 	}
 	fmt.Printf("displayinfo %+v\n", displayInfo)
 
+	if nextMatchupVersion == "v2" {
+		playNextMatchupV2(displayInfo, controller, nextMatchupHoldDuration, nextMatchupSlideDuration, 50*time.Millisecond)
+	} else {
+		DisplayMutex.Lock()
+		CurrentDisplayType = DisplayTypeNextMatchup
+		CurrentDisplayData = displayInfo
+		DisplayMutex.Unlock()
+		DisplayLoop(1*time.Second, time.Second*8, controller)
+	}
+	fmt.Println("Finished displaying next matchup.")
+}
+
+func playNextMatchupV2(displayInfo ScoreboardNextMatchup, controller *DisplayController, holdDuration, slideDuration, frameInterval time.Duration) {
+	if frameInterval <= 0 {
+		frameInterval = 50 * time.Millisecond
+	}
+
+	panelCount := nextMatchupPanelCount()
+	if panelCount == 0 {
+		return
+	}
+
+	holdFrames := durationFrames(holdDuration, frameInterval)
+	slideFrames := durationFrames(slideDuration, frameInterval)
+	canvasWidth := 64
+
+	for panel := 0; panel < panelCount; panel++ {
+		state := ScoreboardNextMatchupFrame{
+			Matchup:        displayInfo,
+			PanelIndex:     panel,
+			NextPanelIndex: -1,
+			SlideOffset:    0,
+		}
+		for frame := 0; frame < holdFrames; frame++ {
+			setNextMatchupDisplayState(state)
+			if frame == holdFrames-1 && panel == panelCount-1 {
+				return
+			}
+			waitDisplayFrame(controller, frameInterval)
+		}
+
+		if panel == panelCount-1 {
+			return
+		}
+
+		for frame := 0; frame < slideFrames; frame++ {
+			state := ScoreboardNextMatchupFrame{
+				Matchup:        displayInfo,
+				PanelIndex:     panel,
+				NextPanelIndex: panel + 1,
+				SlideOffset:    ((frame + 1) * canvasWidth) / slideFrames,
+			}
+			setNextMatchupDisplayState(state)
+			waitDisplayFrame(controller, frameInterval)
+		}
+	}
+}
+
+func setNextMatchupDisplayState(displayInfo ScoreboardNextMatchupFrame) {
 	DisplayMutex.Lock()
 	CurrentDisplayType = DisplayTypeNextMatchup
 	CurrentDisplayData = displayInfo
 	DisplayMutex.Unlock()
+}
 
-	DisplayLoop(1*time.Second, time.Second*8, controller)
-	fmt.Println("Finished displaying next matchup.")
+func durationFrames(duration, frameInterval time.Duration) int {
+	if duration <= 0 {
+		return 1
+	}
+	frames := int((duration + frameInterval - 1) / frameInterval)
+	if frames < 1 {
+		return 1
+	}
+	return frames
+}
+
+func waitDisplayFrame(controller *DisplayController, frameInterval time.Duration) {
+	controller.Mu.Lock()
+	for controller.Paused {
+		controller.Cond.Wait()
+	}
+	controller.Mu.Unlock()
+
+	timer := time.NewTimer(frameInterval)
+	defer timer.Stop()
+	<-timer.C
 }
 
 func chooseString(primary *string, fallback *string, defaultValue string) string {

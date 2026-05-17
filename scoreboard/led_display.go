@@ -29,6 +29,9 @@ const (
 
 var divisionStandingsMonochrome bool
 var divisionStandingsGreenBackground bool
+var nextMatchupVersion = "v1"
+var nextMatchupHoldDuration = 2500 * time.Millisecond
+var nextMatchupSlideDuration = 500 * time.Millisecond
 
 type divisionStandingsPalette struct {
 	background color.RGBA
@@ -47,6 +50,26 @@ func SetDivisionStandingsMonochrome(enabled bool) {
 
 func SetDivisionStandingsGreenBackground(enabled bool) {
 	divisionStandingsGreenBackground = enabled
+}
+
+func SetNextMatchupVersion(version string) {
+	switch strings.ToLower(strings.TrimSpace(version)) {
+	case "v2":
+		nextMatchupVersion = "v2"
+	default:
+		nextMatchupVersion = "v1"
+	}
+}
+
+func SetNextMatchupTiming(holdMS, slideMS int) {
+	if holdMS <= 0 {
+		holdMS = 2500
+	}
+	if slideMS <= 0 {
+		slideMS = 500
+	}
+	nextMatchupHoldDuration = time.Duration(holdMS) * time.Millisecond
+	nextMatchupSlideDuration = time.Duration(slideMS) * time.Millisecond
 }
 
 func divisionStandingsColors() divisionStandingsPalette {
@@ -201,6 +224,27 @@ func divisionStandingsContentHeight(displayInfo ScoreboardDivision) int {
 }
 
 func DrawNextMatchup(c PixelCanvas, m ScoreboardNextMatchup) {
+	if nextMatchupVersion == "v2" {
+		DrawNextMatchupFrame(c, ScoreboardNextMatchupFrame{
+			Matchup:        m,
+			PanelIndex:     0,
+			NextPanelIndex: -1,
+			SlideOffset:    0,
+		})
+		return
+	}
+	drawNextMatchupV1(c, m)
+}
+
+func DrawNextMatchupFrame(c PixelCanvas, frame ScoreboardNextMatchupFrame) {
+	if nextMatchupVersion == "v2" {
+		drawNextMatchupV2(c, frame)
+		return
+	}
+	DrawNextMatchup(c, frame.Matchup)
+}
+
+func drawNextMatchupV1(c PixelCanvas, m ScoreboardNextMatchup) {
 	bounds := c.Bounds()
 	width := bounds.Max.X
 	height := bounds.Max.Y
@@ -274,6 +318,64 @@ func DrawNextMatchup(c PixelCanvas, m ScoreboardNextMatchup) {
 	_ = height
 }
 
+func drawNextMatchupV2(c PixelCanvas, frame ScoreboardNextMatchupFrame) {
+	bounds := c.Bounds()
+	width := bounds.Max.X
+	height := bounds.Max.Y
+
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			c.Set(x, y, color.RGBA{R: 0, G: 0, B: 0, A: 255})
+		}
+	}
+
+	drawNextMatchupPanel(c, frame.Matchup, frame.PanelIndex, -frame.SlideOffset)
+	if frame.NextPanelIndex >= 0 {
+		drawNextMatchupPanel(c, frame.Matchup, frame.NextPanelIndex, width-frame.SlideOffset)
+	}
+}
+
+func drawNextMatchupPanel(c PixelCanvas, m ScoreboardNextMatchup, panelIndex int, xOffset int) {
+	if panelIndex < 0 || panelIndex >= nextMatchupPanelCount() {
+		return
+	}
+
+	yellow := color.RGBA{R: 255, G: 255, B: 0, A: 255}
+	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
+	grey := color.RGBA{R: 160, G: 160, B: 160, A: 255}
+	green := color.RGBA{R: 100, G: 200, B: 100, A: 255}
+
+	switch panelIndex {
+	case 0:
+		header := "NEXT"
+		if m.GameType != "" && m.GameType != "Regular Season" {
+			header = trimText5x8ToWidth(strings.ToUpper("NEXT "+m.GameType), c.Bounds().Max.X-2)
+		}
+		drawText5x8CenteredAtOffset(c, xOffset, 1, header, yellow)
+		drawText5x8CenteredAtOffset(c, xOffset, 12, formatNextMatchupDateLine(m.DateTime), green)
+		drawText5x8CenteredAtOffset(c, xOffset, 23, formatNextMatchupTimeLine(m.DateTime), green)
+		drawText5x8CenteredAtOffset(c, xOffset, 34, strings.ToUpper(nextMatchupMatchupLine(m)), white)
+
+		venueLines := formatVenueLines(strings.ToUpper(m.Venue), 10, 2)
+		if len(venueLines) == 1 {
+			drawText5x8CenteredAtOffset(c, xOffset, 50, venueLines[0], grey)
+		} else if len(venueLines) >= 2 {
+			drawText5x8CenteredAtOffset(c, xOffset, 45, venueLines[0], grey)
+			drawText5x8CenteredAtOffset(c, xOffset, 54, venueLines[1], grey)
+		}
+	case 1:
+		drawText5x8CenteredAtOffset(c, xOffset, 1, "AWAY", yellow)
+		drawText5x8CenteredAtOffset(c, xOffset, 14, strings.ToUpper(nextMatchupTeamRecordLine(m.AwayTeam)), white)
+		drawText5x8CenteredAtOffset(c, xOffset, 27, strings.ToUpper(nextMatchupPitcherNameLine(m.AwayTeam.ProbablePitcher)), white)
+		drawText5x8CenteredAtOffset(c, xOffset, 40, strings.ToUpper(nextMatchupPitcherDetailLine(m.AwayTeam.ProbablePitcher)), grey)
+	case 2:
+		drawText5x8CenteredAtOffset(c, xOffset, 1, "HOME", yellow)
+		drawText5x8CenteredAtOffset(c, xOffset, 14, strings.ToUpper(nextMatchupTeamRecordLine(m.HomeTeam)), white)
+		drawText5x8CenteredAtOffset(c, xOffset, 27, strings.ToUpper(nextMatchupPitcherNameLine(m.HomeTeam.ProbablePitcher)), white)
+		drawText5x8CenteredAtOffset(c, xOffset, 40, strings.ToUpper(nextMatchupPitcherDetailLine(m.HomeTeam.ProbablePitcher)), grey)
+	}
+}
+
 // formatNextMatchupDateTime formats local time as "Fri 4/4 6:05p".
 func formatNextMatchupDateTime(t time.Time) string {
 	if t.IsZero() {
@@ -294,6 +396,67 @@ func formatNextMatchupDateTime(t time.Time) string {
 	}
 	day := lt.Weekday().String()[:3]
 	return fmt.Sprintf("%s %d/%d %d:%02d%s", day, int(lt.Month()), lt.Day(), h, m, suf)
+}
+
+func formatNextMatchupDateLine(t time.Time) string {
+	if t.IsZero() {
+		return "TBD"
+	}
+	lt := t.Local()
+	day := strings.ToUpper(lt.Weekday().String()[:3])
+	return fmt.Sprintf("%s %d/%d", day, int(lt.Month()), lt.Day())
+}
+
+func formatNextMatchupTimeLine(t time.Time) string {
+	if t.IsZero() {
+		return "TBD"
+	}
+	lt := t.Local()
+	h := lt.Hour()
+	m := lt.Minute()
+	suf := "A"
+	if h >= 12 {
+		suf = "P"
+	}
+	if h > 12 {
+		h -= 12
+	}
+	if h == 0 {
+		h = 12
+	}
+	return fmt.Sprintf("%d:%02d%s", h, m, suf)
+}
+
+func nextMatchupPanelCount() int {
+	return 3
+}
+
+func nextMatchupMatchupLine(m ScoreboardNextMatchup) string {
+	return trimText5x8ToWidth(teamAbbrev(m.AwayTeam.ShortName, m.AwayTeam.Name)+" @ "+teamAbbrev(m.HomeTeam.ShortName, m.HomeTeam.Name), 62)
+}
+
+func nextMatchupTeamRecordLine(team ScoreboardNextMatchupTeam) string {
+	line := fmt.Sprintf("%s %d-%d", teamAbbrev(team.ShortName, team.Name), team.Record.Wins, team.Record.Losses)
+	return trimText5x8ToWidth(line, 62)
+}
+
+func nextMatchupPitcherNameLine(p ScoreboardPitcher) string {
+	return trimText5x8ToWidth(pitcherNameOnly(p), 62)
+}
+
+func nextMatchupPitcherDetailLine(p ScoreboardPitcher) string {
+	hand := pitcherHandLabel(p)
+	era := strings.TrimSpace(p.ERA)
+	switch {
+	case hand != "" && era != "":
+		return trimText5x8ToWidth(hand+" "+era, 62)
+	case hand != "":
+		return hand
+	case era != "":
+		return trimText5x8ToWidth(era, 62)
+	default:
+		return "TBD"
+	}
 }
 
 // DrawLastMatchup renders the most recently completed game result.
@@ -453,6 +616,15 @@ func drawText5x8RightAligned(c PixelCanvas, rightX, y int, text string, col colo
 	x := rightX - measureText5x8Width(text)
 	if x < 0 {
 		x = 0
+	}
+	DrawText5x8(c, x, y, text, col)
+}
+
+func drawText5x8CenteredAtOffset(c PixelCanvas, xOffset, y int, text string, col color.RGBA) {
+	panelWidth := c.Bounds().Max.X
+	x := xOffset + (panelWidth-measureText5x8Width(text))/2
+	if x < xOffset {
+		x = xOffset
 	}
 	DrawText5x8(c, x, y, text, col)
 }
@@ -651,6 +823,9 @@ func formatGameTime(t time.Time) string {
 func pitcherNameOnly(p ScoreboardPitcher) string {
 	if p.FullName == "" || p.FullName == "TBD" {
 		return "TBD"
+	}
+	if strings.TrimSpace(p.LastName) == "" {
+		return p.FullName
 	}
 	return p.LastName
 }

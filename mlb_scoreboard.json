@@ -3,6 +3,11 @@
     "monochrome": true,
     "green_background": true
   },
+  "next_matchup": {
+    "version": "v2",
+    "hold_ms": 2500,
+    "slide_ms": 500
+  },
   "termsim": {
     "empty": " ",
     "fps": 3,
