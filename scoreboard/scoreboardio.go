@@ -63,6 +63,13 @@ type ScoreboardNextMatchup struct {
 	GameType string
 }
 
+type ScoreboardNextMatchupFrame struct {
+	Matchup        ScoreboardNextMatchup
+	PanelIndex     int
+	NextPanelIndex int
+	SlideOffset    int
+}
+
 type ScoreboardLastMatchup struct {
 	AwayTeam               ScoreboardLastMatchupTeam
 	HomeTeam               ScoreboardLastMatchupTeam

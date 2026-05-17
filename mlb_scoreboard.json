@@ -1,7 +1,11 @@
 {
   "division_standings": {
-    "monochrome": true,
-    "green_background": true
+    "monochrome": false,
+    "green_background": false
+  },
+  "next_matchup": {
+    "hold_ms": 3000,
+    "slide_ms": 600
   },
   "termsim": {
     "empty": " ",

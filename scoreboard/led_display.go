@@ -29,6 +29,8 @@ const (
 
 var divisionStandingsMonochrome bool
 var divisionStandingsGreenBackground bool
+var nextMatchupHoldDuration = 2500 * time.Millisecond
+var nextMatchupSlideDuration = 500 * time.Millisecond
 
 type divisionStandingsPalette struct {
 	background color.RGBA
@@ -47,6 +49,17 @@ func SetDivisionStandingsMonochrome(enabled bool) {
 
 func SetDivisionStandingsGreenBackground(enabled bool) {
 	divisionStandingsGreenBackground = enabled
+}
+
+func SetNextMatchupTiming(holdMS, slideMS int) {
+	if holdMS <= 0 {
+		holdMS = 2500
+	}
+	if slideMS <= 0 {
+		slideMS = 500
+	}
+	nextMatchupHoldDuration = time.Duration(holdMS) * time.Millisecond
+	nextMatchupSlideDuration = time.Duration(slideMS) * time.Millisecond
 }
 
 func divisionStandingsColors() divisionStandingsPalette {
@@ -201,77 +214,92 @@ func divisionStandingsContentHeight(displayInfo ScoreboardDivision) int {
 }
 
 func DrawNextMatchup(c PixelCanvas, m ScoreboardNextMatchup) {
+	DrawNextMatchupFrame(c, ScoreboardNextMatchupFrame{
+		Matchup:        m,
+		PanelIndex:     0,
+		NextPanelIndex: -1,
+		SlideOffset:    0,
+	})
+}
+
+func DrawNextMatchupFrame(c PixelCanvas, frame ScoreboardNextMatchupFrame) {
+	drawNextMatchup(c, frame)
+}
+
+func drawNextMatchup(c PixelCanvas, frame ScoreboardNextMatchupFrame) {
 	bounds := c.Bounds()
 	width := bounds.Max.X
 	height := bounds.Max.Y
+	background := color.RGBA{R: 0, G: 0, B: 0, A: 255}
 
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
-			c.Set(x, y, color.RGBA{R: 0, G: 0, B: 0, A: 255})
+			c.Set(x, y, background)
 		}
 	}
 
-	yellow := color.RGBA{R: 255, G: 255, B: 0, A: 255}
-	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
-	green := color.RGBA{R: 100, G: 200, B: 100, A: 255}
-	awayCol := GetTeamColor(m.AwayTeam.Name)
-	homeCol := GetTeamColor(m.HomeTeam.Name)
-
-	const rowH = fontRowH + 2
-
-	header := "NEXT"
-	if m.GameType != "" && m.GameType != "Regular Season" {
-		header = trimToChars("NEXT "+m.GameType, 16)
+	drawNextMatchupPanel(c, frame.Matchup, frame.PanelIndex, -frame.SlideOffset)
+	if frame.NextPanelIndex >= 0 {
+		drawNextMatchupPanel(c, frame.Matchup, frame.NextPanelIndex, width-frame.SlideOffset)
 	}
-	drawTextCentered(c, 1, header, yellow)
-	drawTextCentered(c, 1+rowH, formatNextMatchupDateTime(m.DateTime), green)
+}
 
-	colW := width / 2
-	awayX := 0
-	homeX := colW
+func drawNextMatchupPanel(c PixelCanvas, m ScoreboardNextMatchup, panelIndex int, xOffset int) {
+	if panelIndex < 0 || panelIndex >= nextMatchupPanelCount() {
+		return
+	}
+
+	yellow := color.RGBA{R: 255, G: 255, B: 0, A: 255}
+	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
+	grey := color.RGBA{R: 160, G: 160, B: 160, A: 255}
+	green := color.RGBA{R: 100, G: 200, B: 100, A: 255}
+	awayAccent := color.RGBA{R: 120, G: 180, B: 255, A: 255}
+	homeAccent := color.RGBA{R: 120, G: 255, B: 140, A: 255}
 
 	awayAbbr := teamAbbrev(m.AwayTeam.ShortName, m.AwayTeam.Name)
 	homeAbbr := teamAbbrev(m.HomeTeam.ShortName, m.HomeTeam.Name)
-	matchup := trimToChars(awayAbbr+" @ "+homeAbbr, 16)
-	drawTextCentered(c, 1+rowH*2, matchup, color.RGBA{R: 220, G: 220, B: 220, A: 255})
+	awayCol := GetTeamColor(m.AwayTeam.Name)
+	homeCol := GetTeamColor(m.HomeTeam.Name)
 
-	awayRecord := trimToChars(fmt.Sprintf("%d-%d", m.AwayTeam.Record.Wins, m.AwayTeam.Record.Losses), 8)
-	homeRecord := trimToChars(fmt.Sprintf("%d-%d", m.HomeTeam.Record.Wins, m.HomeTeam.Record.Losses), 8)
-	drawTextCenteredInRange(c, awayX, colW, 1+rowH*3, awayRecord, awayCol)
-	drawTextCenteredInRange(c, homeX, colW, 1+rowH*3, homeRecord, homeCol)
+	switch panelIndex {
+	case 0:
+		header := "NEXT"
+		if m.GameType != "" && m.GameType != "Regular Season" {
+			header = trimText5x8ToWidth(strings.ToUpper("NEXT "+m.GameType), c.Bounds().Max.X-2)
+		}
+		drawText5x8CenteredAtOffset(c, xOffset, 1, header, yellow)
+		drawText5x8CenteredAtOffset(c, xOffset, 13, formatNextMatchupDateLine(m.DateTime), green)
+		drawText5x8CenteredAtOffset(c, xOffset, 23, formatNextMatchupTimeLine(m.DateTime), green)
+		drawText5x8CenteredSegmentsAtOffset(c, xOffset, 35, []text5x8Segment{
+			{text: awayAbbr, col: awayCol},
+			{text: " @ ", col: white},
+			{text: homeAbbr, col: homeCol},
+		})
 
-	awayPitch := trimToChars(pitcherNameOnly(m.AwayTeam.ProbablePitcher), 8)
-	homePitch := trimToChars(pitcherNameOnly(m.HomeTeam.ProbablePitcher), 8)
-	drawTextCenteredInRange(c, awayX, colW, 1+rowH*4, awayPitch, awayCol)
-	drawTextCenteredInRange(c, homeX, colW, 1+rowH*4, homePitch, homeCol)
-
-	awayHand := pitcherHandLabel(m.AwayTeam.ProbablePitcher)
-	homeHand := pitcherHandLabel(m.HomeTeam.ProbablePitcher)
-	if awayHand != "" {
-		drawTextCenteredInRange(c, awayX, colW, 1+rowH*5, awayHand, grey)
+		venueLines := formatVenueLines(strings.ToUpper(m.Venue), 12, 2)
+		if len(venueLines) == 1 {
+			drawText5x8CenteredAtOffset(c, xOffset, 54, venueLines[0], grey)
+		} else if len(venueLines) >= 2 {
+			drawText5x8CenteredAtOffset(c, xOffset, 47, venueLines[0], grey)
+			drawText5x8CenteredAtOffset(c, xOffset, 56, venueLines[1], grey)
+		}
+	case 1:
+		drawText5x8CenteredAtOffset(c, xOffset, 1, "AWAY", awayAccent)
+		drawText5x8CenteredSegmentsAtOffset(c, xOffset, 16, []text5x8Segment{
+			{text: awayAbbr, col: awayCol},
+			{text: " " + strings.ToUpper(nextMatchupTeamRecordValue(m.AwayTeam)), col: white},
+		})
+		drawText5x8CenteredAtOffset(c, xOffset, 34, strings.ToUpper(nextMatchupPitcherNameLine(m.AwayTeam.ProbablePitcher)), white)
+		drawText5x8CenteredAtOffset(c, xOffset, 47, strings.ToUpper(nextMatchupPitcherDetailLine(m.AwayTeam.ProbablePitcher)), grey)
+	case 2:
+		drawText5x8CenteredAtOffset(c, xOffset, 1, "HOME", homeAccent)
+		drawText5x8CenteredSegmentsAtOffset(c, xOffset, 16, []text5x8Segment{
+			{text: homeAbbr, col: homeCol},
+			{text: " " + strings.ToUpper(nextMatchupTeamRecordValue(m.HomeTeam)), col: white},
+		})
+		drawText5x8CenteredAtOffset(c, xOffset, 34, strings.ToUpper(nextMatchupPitcherNameLine(m.HomeTeam.ProbablePitcher)), white)
+		drawText5x8CenteredAtOffset(c, xOffset, 47, strings.ToUpper(nextMatchupPitcherDetailLine(m.HomeTeam.ProbablePitcher)), grey)
 	}
-	if homeHand != "" {
-		drawTextCenteredInRange(c, homeX, colW, 1+rowH*5, homeHand, grey)
-	}
-
-	awayERA := m.AwayTeam.ProbablePitcher.ERA
-	homeERA := m.HomeTeam.ProbablePitcher.ERA
-	if awayERA != "" {
-		drawTextCenteredInRange(c, awayX, colW, 1+rowH*5, awayERA, grey)
-	}
-	if homeERA != "" {
-		drawTextCenteredInRange(c, homeX, colW, 1+rowH*5, homeERA, grey)
-	}
-
-	venueLines := formatVenueLines(m.Venue, 16, 2)
-	if len(venueLines) == 1 {
-		drawTextCentered(c, 1+rowH*7, venueLines[0], grey)
-	} else if len(venueLines) >= 2 {
-		drawTextCentered(c, 1+rowH*6, venueLines[0], grey)
-		drawTextCentered(c, 1+rowH*7, venueLines[1], grey)
-	}
-
-	_ = height
 }
 
 // formatNextMatchupDateTime formats local time as "Fri 4/4 6:05p".
@@ -294,6 +322,71 @@ func formatNextMatchupDateTime(t time.Time) string {
 	}
 	day := lt.Weekday().String()[:3]
 	return fmt.Sprintf("%s %d/%d %d:%02d%s", day, int(lt.Month()), lt.Day(), h, m, suf)
+}
+
+func formatNextMatchupDateLine(t time.Time) string {
+	if t.IsZero() {
+		return "TBD"
+	}
+	lt := t.Local()
+	day := strings.ToUpper(lt.Weekday().String()[:3])
+	return fmt.Sprintf("%s %d/%d", day, int(lt.Month()), lt.Day())
+}
+
+func formatNextMatchupTimeLine(t time.Time) string {
+	if t.IsZero() {
+		return "TBD"
+	}
+	lt := t.Local()
+	h := lt.Hour()
+	m := lt.Minute()
+	suf := "A"
+	if h >= 12 {
+		suf = "P"
+	}
+	if h > 12 {
+		h -= 12
+	}
+	if h == 0 {
+		h = 12
+	}
+	return fmt.Sprintf("%d:%02d%s", h, m, suf)
+}
+
+func nextMatchupPanelCount() int {
+	return 3
+}
+
+func nextMatchupMatchupLine(m ScoreboardNextMatchup) string {
+	return trimText5x8ToWidth(teamAbbrev(m.AwayTeam.ShortName, m.AwayTeam.Name)+" @ "+teamAbbrev(m.HomeTeam.ShortName, m.HomeTeam.Name), 62)
+}
+
+func nextMatchupTeamRecordLine(team ScoreboardNextMatchupTeam) string {
+	line := fmt.Sprintf("%s %s", teamAbbrev(team.ShortName, team.Name), nextMatchupTeamRecordValue(team))
+	return trimText5x8ToWidth(line, 62)
+}
+
+func nextMatchupTeamRecordValue(team ScoreboardNextMatchupTeam) string {
+	return fmt.Sprintf("%d-%d", team.Record.Wins, team.Record.Losses)
+}
+
+func nextMatchupPitcherNameLine(p ScoreboardPitcher) string {
+	return trimText5x8ToWidth(pitcherNameOnly(p), 62)
+}
+
+func nextMatchupPitcherDetailLine(p ScoreboardPitcher) string {
+	hand := pitcherHandLabel(p)
+	era := strings.TrimSpace(p.ERA)
+	switch {
+	case hand != "" && era != "":
+		return trimText5x8ToWidth(hand+" "+era, 62)
+	case hand != "":
+		return hand
+	case era != "":
+		return trimText5x8ToWidth(era, 62)
+	default:
+		return "TBD"
+	}
 }
 
 // DrawLastMatchup renders the most recently completed game result.
@@ -455,6 +548,57 @@ func drawText5x8RightAligned(c PixelCanvas, rightX, y int, text string, col colo
 		x = 0
 	}
 	DrawText5x8(c, x, y, text, col)
+}
+
+func drawText5x8CenteredAtOffset(c PixelCanvas, xOffset, y int, text string, col color.RGBA) {
+	panelWidth := c.Bounds().Max.X
+	x := xOffset + (panelWidth-measureText5x8Width(text))/2
+	if x < xOffset {
+		x = xOffset
+	}
+	DrawText5x8(c, x, y, text, col)
+}
+
+type text5x8Segment struct {
+	text string
+	col  color.RGBA
+}
+
+func drawText5x8CenteredSegmentsAtOffset(c PixelCanvas, xOffset, y int, segments []text5x8Segment) {
+	panelWidth := c.Bounds().Max.X
+	totalWidth := measureText5x8SegmentsWidth(segments)
+	x := xOffset + (panelWidth-totalWidth)/2
+	if x < xOffset {
+		x = xOffset
+	}
+
+	type segmentRune struct {
+		ch  rune
+		col color.RGBA
+	}
+
+	var runes []segmentRune
+	for _, segment := range segments {
+		for _, ch := range []rune(segment.text) {
+			runes = append(runes, segmentRune{ch: ch, col: segment.col})
+		}
+	}
+	for i, r := range runes {
+		DrawText5x8(c, x, y, string(r.ch), r.col)
+		x += advance5x8(r.ch, i == len(runes)-1)
+	}
+}
+
+func measureText5x8SegmentsWidth(segments []text5x8Segment) int {
+	var runes []rune
+	for _, segment := range segments {
+		runes = append(runes, []rune(segment.text)...)
+	}
+	width := 0
+	for i, ch := range runes {
+		width += advance5x8(ch, i == len(runes)-1)
+	}
+	return width
 }
 
 func drawTextRightAligned(c PixelCanvas, rightX, y int, text string, col color.RGBA) {
@@ -651,6 +795,9 @@ func formatGameTime(t time.Time) string {
 func pitcherNameOnly(p ScoreboardPitcher) string {
 	if p.FullName == "" || p.FullName == "TBD" {
 		return "TBD"
+	}
+	if strings.TrimSpace(p.LastName) == "" {
+		return p.FullName
 	}
 	return p.LastName
 }

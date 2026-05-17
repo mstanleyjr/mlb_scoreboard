@@ -29,6 +29,8 @@ type Options struct {
 	RulerY                      int
 	DivisionStandingsMonochrome bool
 	DivisionStandingsGreenBG    bool
+	NextMatchupHoldMS           int
+	NextMatchupSlideMS          int
 }
 
 type Matrix struct {
@@ -95,6 +97,8 @@ func RunCLI(args []string) error {
 		RulerY:                      cfg.Termsim.RulerY,
 		DivisionStandingsMonochrome: cfg.DivisionStandings.Monochrome,
 		DivisionStandingsGreenBG:    cfg.DivisionStandings.GreenBackground,
+		NextMatchupHoldMS:           cfg.NextMatchup.HoldMS,
+		NextMatchupSlideMS:          cfg.NextMatchup.SlideMS,
 	}
 	if visited["empty"] {
 		opts.Empty = *empty
@@ -122,6 +126,8 @@ func RunCLI(args []string) error {
 		RulerY:                      opts.RulerY,
 		DivisionStandingsMonochrome: opts.DivisionStandingsMonochrome,
 		DivisionStandingsGreenBG:    opts.DivisionStandingsGreenBG,
+		NextMatchupHoldMS:           opts.NextMatchupHoldMS,
+		NextMatchupSlideMS:          opts.NextMatchupSlideMS,
 	})
 }
 
@@ -138,6 +144,7 @@ func Run(parent context.Context, opts Options) error {
 	}
 	scoreboard.SetDivisionStandingsMonochrome(opts.DivisionStandingsMonochrome)
 	scoreboard.SetDivisionStandingsGreenBackground(opts.DivisionStandingsGreenBG)
+	scoreboard.SetNextMatchupTiming(opts.NextMatchupHoldMS, opts.NextMatchupSlideMS)
 
 	var wg sync.WaitGroup
 	controller := &scoreboard.DisplayController{}
@@ -269,6 +276,8 @@ func renderCurrentDisplay(m *Matrix) {
 	case scoreboard.DisplayTypeNextMatchup:
 		if next, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardNextMatchup); ok {
 			scoreboard.DrawNextMatchup(m, next)
+		} else if frame, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardNextMatchupFrame); ok {
+			scoreboard.DrawNextMatchupFrame(m, frame)
 		}
 	case scoreboard.DisplayTypeLastMatchup:
 		if last, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardLastMatchup); ok {

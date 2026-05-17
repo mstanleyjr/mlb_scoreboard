@@ -49,6 +49,7 @@ func main() {
 
 	scoreboard.SetDivisionStandingsMonochrome(monochrome)
 	scoreboard.SetDivisionStandingsGreenBackground(greenBackground)
+	scoreboard.SetNextMatchupTiming(cfg.NextMatchup.HoldMS, cfg.NextMatchup.SlideMS)
 
 	fmt.Println("HERE WE GOOOOO")
 
@@ -127,6 +128,8 @@ func main() {
 			case scoreboard.DisplayTypeNextMatchup:
 				if next, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardNextMatchup); ok {
 					scoreboard.DrawNextMatchup(canvas, next)
+				} else if frame, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardNextMatchupFrame); ok {
+					scoreboard.DrawNextMatchupFrame(canvas, frame)
 				}
 			case scoreboard.DisplayTypeLastMatchup:
 				if last, ok := scoreboard.CurrentDisplayData.(scoreboard.ScoreboardLastMatchup); ok {
