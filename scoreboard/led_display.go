@@ -1083,9 +1083,35 @@ func drawLiveGameLastPlayPanelBuffered(c PixelCanvas, game ScoreboardLiveGame, x
 
 	drawLiveGameLastPlayPanel(panel, game, 0, grey, orange)
 
-	for y := 29; y < panel.h; y++ {
-		for x := 0; x < panel.w; x++ {
-			c.Set(xOffset+x, y, panel.pix[y*panel.w+x])
+	bounds := c.Bounds()
+	xStart := 0
+	if xOffset < bounds.Min.X {
+		xStart = bounds.Min.X - xOffset
+	}
+	xEnd := panel.w
+	if xOffset+xEnd > bounds.Max.X {
+		xEnd = bounds.Max.X - xOffset
+	}
+	if xStart >= xEnd {
+		return
+	}
+
+	yStart := 29
+	if yStart < bounds.Min.Y {
+		yStart = bounds.Min.Y
+	}
+	yEnd := panel.h
+	if yEnd > bounds.Max.Y {
+		yEnd = bounds.Max.Y
+	}
+	if yStart >= yEnd {
+		return
+	}
+
+	for y := yStart; y < yEnd; y++ {
+		rowOffset := y * panel.w
+		for x := xStart; x < xEnd; x++ {
+			c.Set(xOffset+x, y, panel.pix[rowOffset+x])
 		}
 	}
 }

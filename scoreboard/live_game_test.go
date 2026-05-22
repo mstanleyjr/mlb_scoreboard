@@ -1,10 +1,33 @@
 package scoreboard
 
 import (
+	"fmt"
+	"image"
 	"image/color"
 	"testing"
 	"time"
 )
+
+type strictCanvas struct {
+	w, h int
+	pix  []color.RGBA
+}
+
+func newStrictCanvas(w, h int) *strictCanvas {
+	return &strictCanvas{w: w, h: h, pix: make([]color.RGBA, w*h)}
+}
+
+func (c *strictCanvas) Set(x, y int, col color.Color) {
+	if x < 0 || y < 0 || x >= c.w || y >= c.h {
+		panic(fmt.Sprintf("out of bounds Set(%d,%d)", x, y))
+	}
+	r, g, b, a := col.RGBA()
+	c.pix[y*c.w+x] = color.RGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 8)}
+}
+
+func (c *strictCanvas) Bounds() image.Rectangle {
+	return image.Rect(0, 0, c.w, c.h)
+}
 
 func withLiveGameLastPlayPanelV2(t *testing.T, enabled bool) {
 	t.Helper()
@@ -215,4 +238,22 @@ func TestDrawLiveGameFrameLastPlayPanelV2DoesNotBleedWhenOffscreen(t *testing.T)
 	if countColorInBand(canvas, orange, 29, 63) != 0 {
 		t.Fatalf("expected offscreen v2 last play panel to leave no visible orange pixels")
 	}
+}
+
+func TestDrawLiveGameFrameLastPlayPanelV2ClipsRightEdge(t *testing.T) {
+	withLiveGameLastPlayPanelV2(t, true)
+
+	canvas := newStrictCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "RBI single to center",
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     2,
+		NextPanelIndex: 3,
+		SlideOffset:    0,
+	})
 }
