@@ -753,7 +753,7 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 func LiveLookInDisplay(ctx context.Context, info ScoreboardInformation, m *statsapi.MLBClient, controller *DisplayController) {
 	gameIds := FindAllActiveGameIds(info)
 
-	callInterval := time.Second * 10
+	callInterval := time.Second * 20
 	for _, gameId := range gameIds {
 		liveGame, err := m.GetLiveGame(ctx, gameId)
 		if err != nil {
