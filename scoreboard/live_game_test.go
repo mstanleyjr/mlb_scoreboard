@@ -29,6 +29,13 @@ func (c *strictCanvas) Bounds() image.Rectangle {
 	return image.Rect(0, 0, c.w, c.h)
 }
 
+func mockPixel(canvas *MockCanvas, x, y int) color.RGBA {
+	if x < 0 || y < 0 || x >= canvas.w || y >= canvas.h {
+		return color.RGBA{}
+	}
+	return canvas.pix[y*canvas.w+x]
+}
+
 func TestSetLiveGameTimingDefaults(t *testing.T) {
 	SetLiveGameTiming(0, 0)
 	if liveGameHoldDuration != 2200*time.Millisecond || liveGameSlideDuration != 400*time.Millisecond {
@@ -161,7 +168,8 @@ func TestDrawLiveGameFrameLastPlayPanel(t *testing.T) {
 	game := ScoreboardLiveGame{
 		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
 		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
-		LastPlayNotation: "RBI single to center",
+		LastPlayNotation: "2B, 2 RBI",
+		LastPlayRBIs:     2,
 	}
 
 	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
@@ -173,6 +181,12 @@ func TestDrawLiveGameFrameLastPlayPanel(t *testing.T) {
 	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
 	if countColorInBand(canvas, orange, 29, 63) == 0 {
 		t.Fatalf("expected last play text to render")
+	}
+	if mockPixel(canvas, 31, 29) != orange {
+		t.Fatalf("expected achieved-base marker at second base")
+	}
+	if mockPixel(canvas, 55, 34) != orange || mockPixel(canvas, 55, 41) != orange {
+		t.Fatalf("expected RBI dots on right side")
 	}
 }
 
@@ -211,4 +225,50 @@ func TestDrawLiveGameFrameLastPlayPanelClipsRightEdge(t *testing.T) {
 		NextPanelIndex: 3,
 		SlideOffset:    0,
 	})
+}
+
+func TestDrawLiveGameFrameLastPlayPanelLookingStrikeoutUsesBackwardK(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "K",
+		LastPlay:         "Called strike three looking.",
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     3,
+		NextPanelIndex: -1,
+	})
+
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	black := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	if mockPixel(canvas, 29, 44) != black {
+		t.Fatalf("expected mirrored K to leave left row-1 pixel empty")
+	}
+	if mockPixel(canvas, 32, 44) != orange || mockPixel(canvas, 33, 44) != orange {
+		t.Fatalf("expected mirrored K row to render on the right-shifted columns")
+	}
+}
+
+func TestDrawLiveGameFrameLastPlayPanelSwingingStrikeoutKeepsNormalK(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "K",
+		LastPlay:         "Strikeout swinging.",
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     3,
+		NextPanelIndex: -1,
+	})
+
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	if mockPixel(canvas, 29, 44) != orange || mockPixel(canvas, 30, 44) != orange {
+		t.Fatalf("expected standard K shape for non-looking strikeout")
+	}
 }
