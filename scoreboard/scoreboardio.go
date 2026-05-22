@@ -416,10 +416,6 @@ func scorekeepingLastPlayNotation(play *statsapi.BaseballPlayRestObject) string 
 	if result.Event != nil {
 		event = strings.ToLower(strings.TrimSpace(*result.Event))
 	}
-	description := ""
-	if result.Description != nil {
-		description = strings.TrimSpace(*result.Description)
-	}
 
 	notation := ""
 	switch eventType {
@@ -534,7 +530,8 @@ func scorekeepingLastPlayNotation(play *statsapi.BaseballPlayRestObject) string 
 		return scorekeepingAppendRBIs(notation, result.Rbi)
 	}
 
-	return description
+	// No concise notation recognized; treat as prose/description
+	return ""
 }
 
 func scorekeepingFieldingNotation(play *statsapi.BaseballPlayRestObject, prefix string) string {

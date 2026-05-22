@@ -1029,9 +1029,14 @@ func drawLiveGameBottomPanel(c PixelCanvas, game ScoreboardLiveGame, panelIndex 
 		drawText5x8CenteredAtOffset(c, xOffset, 56, liveGamePitcherTertiaryLine(game), white)
 	case 3:
 		drawText5x8CenteredAtOffset(c, xOffset, 29, "LAST PLAY", grey)
-		lines := liveGameLastPlayLines(game)
-		for i, line := range lines {
-			drawText5x8CenteredAtOffset(c, xOffset, 38+i*9, line, orange)
+		// If we have a concise scorekeeping notation, render a large diamond (scorebook) graphic
+		if strings.TrimSpace(game.LastPlayNotation) != "" {
+			drawScorebookDiamondCentered(c, xOffset, 34, orange)
+		} else {
+			lines := liveGameLastPlayLines(game)
+			for i, line := range lines {
+				drawText5x8CenteredAtOffset(c, xOffset, 38+i*9, line, orange)
+			}
 		}
 	}
 }
@@ -1165,6 +1170,37 @@ func liveGameLastPlayLines(game ScoreboardLiveGame) []string {
 		lines = append(lines, "")
 	}
 	return lines[:3]
+}
+
+// drawScorebookDiamondCentered draws a simple diamond (base) graphic centered
+// in the bottom panel area. xOffset is the panel's horizontal offset; topY is the
+// starting Y coordinate to draw the diamond pattern.
+func drawScorebookDiamondCentered(c PixelCanvas, xOffset, topY int, col color.RGBA) {
+	// Outline-only diamond pattern (9 rows x 11 cols)
+	pattern := []string{
+		"     ##     ",
+		"    #  #    ",
+		"   #    #   ",
+		"  #      #  ",
+		" #        # ",
+		"  #      #  ",
+		"   #    #   ",
+		"    #  #    ",
+		"     ##     ",
+	}
+	pw := len(pattern[0])
+	panelW := c.Bounds().Max.X
+	x := xOffset + (panelW-pw)/2
+	if x < xOffset {
+		x = xOffset
+	}
+	for py, row := range pattern {
+		for px, ch := range row {
+			if ch == '#' {
+				c.Set(x+px, topY+py, col)
+			}
+		}
+	}
 }
 
 // DrawLargeScore draws a two-digit score in a larger format
