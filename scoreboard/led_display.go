@@ -1192,16 +1192,15 @@ func drawScorebookDiamondCentered(c PixelCanvas, xOffset, topY, size int, col co
 	if x < xOffset {
 		x = xOffset
 	}
-	// Draw outline diamond: four lines from corners to midpoints
-	for i := 0; i < size; i++ {
-		// Top-left to top
-		c.Set(x+size/2-i/2, topY+i, col)
-		// Top-right to top
-		c.Set(x+size/2+i/2, topY+i, col)
-		// Bottom-left to bottom
-		c.Set(x+size/2-i/2, topY+size-1-i, col)
-		// Bottom-right to bottom
-		c.Set(x+size/2+i/2, topY+size-1-i, col)
+	// Draw outline diamond using Bresenham's line algorithm for each edge
+	cx, cy := x+size/2, topY+size/2
+	r := size / 2
+	for i := 0; i <= r; i++ {
+		// Four symmetric points per row
+		c.Set(cx-i, cy-(r-i), col) // upper left
+		c.Set(cx+i, cy-(r-i), col) // upper right
+		c.Set(cx-i, cy+(r-i), col) // lower left
+		c.Set(cx+i, cy+(r-i), col) // lower right
 	}
 }
 
