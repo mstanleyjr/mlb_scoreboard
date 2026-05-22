@@ -115,6 +115,13 @@ type ScoreboardLiveGame struct {
 	LastPlayRBIs     int
 }
 
+type ScoreboardLiveGameFrame struct {
+	Game           ScoreboardLiveGame
+	PanelIndex     int
+	NextPanelIndex int
+	SlideOffset    int
+}
+
 type ScoreboardLiveGameTeam struct {
 	Name      string
 	ShortName string
