@@ -1045,6 +1045,14 @@ func drawLiveGameBottomPanel(c PixelCanvas, game ScoreboardLiveGame, panelIndex 
 			if diamondSize > 0 {
 				// Slide diamond with panel by passing xOffset
 				drawScorebookDiamondCentered(c, xOffset, startY, diamondSize, orange)
+
+				// Draw notation centered in the diamond
+				notation := strings.TrimSpace(game.LastPlayNotation)
+				if notation != "" {
+					// Center text in diamond
+					textY := startY + diamondSize/2 - 4 // 4 is half font height (5x8)
+					drawText5x8CenteredAtOffset(c, xOffset, textY, notation, orange)
+				}
 			}
 		} else {
 			lines := liveGameLastPlayLines(game)
@@ -1191,7 +1199,7 @@ func liveGameLastPlayLines(game ScoreboardLiveGame) []string {
 // starting Y coordinate to draw the diamond pattern.
 // drawScorebookDiamondCentered draws a scalable, outline-only diamond (square) centered in the panel.
 func drawScorebookDiamondCentered(c PixelCanvas, xOffset, topY, size int, col color.RGBA) {
-	panelW := c.Bounds().Max.X
+	panelW := 64 // Always center diamond in a single panel, not the whole canvas
 	x := xOffset + (panelW-size)/2
 	if x < xOffset {
 		x = xOffset
