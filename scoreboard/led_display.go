@@ -1043,6 +1043,7 @@ func drawLiveGameBottomPanel(c PixelCanvas, game ScoreboardLiveGame, panelIndex 
 				diamondSize = panelH
 			}
 			if diamondSize > 0 {
+				// Slide diamond with panel by passing xOffset
 				drawScorebookDiamondCentered(c, xOffset, startY, diamondSize, orange)
 			}
 		} else {
