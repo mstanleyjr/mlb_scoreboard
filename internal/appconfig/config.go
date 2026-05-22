@@ -28,8 +28,9 @@ type HardwareConfig struct {
 }
 
 type LiveGameConfig struct {
-	HoldMS  int `json:"hold_ms"`
-	SlideMS int `json:"slide_ms"`
+	HoldMS          int  `json:"hold_ms"`
+	SlideMS         int  `json:"slide_ms"`
+	LastPlayPanelV2 bool `json:"last_play_panel_v2"`
 }
 
 type NextMatchupConfig struct {

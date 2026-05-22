@@ -29,7 +29,8 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 			"brightness": 80
 		},
 		"live_game": {
-			"hold_ms": 1800
+			"hold_ms": 1800,
+			"last_play_panel_v2": true
 		},
 		"next_matchup": {
 			"hold_ms": 3000
@@ -55,7 +56,7 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 	if cfg.Hardware.Brightness != 80 {
 		t.Fatalf("expected hardware brightness 80, got %+v", cfg.Hardware)
 	}
-	if cfg.LiveGame.HoldMS != 1800 || cfg.LiveGame.SlideMS != 400 {
+	if cfg.LiveGame.HoldMS != 1800 || cfg.LiveGame.SlideMS != 400 || !cfg.LiveGame.LastPlayPanelV2 {
 		t.Fatalf("expected live game config to merge with defaults, got %+v", cfg.LiveGame)
 	}
 	if cfg.NextMatchup.HoldMS != 3000 || cfg.NextMatchup.SlideMS != 500 {

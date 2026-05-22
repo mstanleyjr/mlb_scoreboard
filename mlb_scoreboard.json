@@ -8,7 +8,8 @@
   },
   "live_game": {
     "hold_ms": 5000,
-    "slide_ms": 500
+    "slide_ms": 500,
+    "last_play_panel_v2": true
   },
   "next_matchup": {
     "hold_ms": 3500,
