@@ -1032,7 +1032,7 @@ func drawLiveGameBottomPanel(c PixelCanvas, game ScoreboardLiveGame, panelIndex 
 		// If we have a concise scorekeeping notation, render a large diamond (scorebook) graphic
 		if strings.TrimSpace(game.LastPlayNotation) != "" {
 			// Calculate diamond size and position
-			panelH := c.Bounds().Max.Y
+			panelH := 64
 			startY := 37 + 2   // bottom of LAST PLAY + 2 rows
 			endY := panelH - 2 // 2 rows from bottom
 			diamondSize := endY - startY
