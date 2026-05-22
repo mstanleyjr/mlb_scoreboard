@@ -911,8 +911,11 @@ func DrawLiveGameFrame(c PixelCanvas, frame ScoreboardLiveGameFrame) {
 	}
 
 	drawLiveGameStaticTop(c, frame.Game)
-	drawLiveGameBottomPanel(c, frame.Game, frame.PanelIndex, -frame.SlideOffset)
-	if frame.NextPanelIndex >= 0 {
+	// Only draw the bottom panel for the current panel if not sliding
+	if frame.NextPanelIndex < 0 {
+		drawLiveGameBottomPanel(c, frame.Game, frame.PanelIndex, 0)
+	} else {
+		drawLiveGameBottomPanel(c, frame.Game, frame.PanelIndex, -frame.SlideOffset)
 		drawLiveGameBottomPanel(c, frame.Game, frame.NextPanelIndex, width-frame.SlideOffset)
 	}
 }
