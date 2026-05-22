@@ -43,6 +43,13 @@ func TestSetLiveGameTimingDefaults(t *testing.T) {
 	}
 }
 
+func TestMeasureLiveGameStatusTextWidthTightensExtraInningsSpacing(t *testing.T) {
+	game := ScoreboardLiveGame{Inning: 10, HalfInning: "bottom", Balls: 3, Strikes: 2}
+	if got, wantMax := measureLiveGameStatusTextWidth(game), measureText5x8Width("B10 3-2")-1; got > wantMax {
+		t.Fatalf("expected tightened status width <= %d, got %d", wantMax, got)
+	}
+}
+
 func TestDrawLiveGameFrameStaticTopAndRHELPanel(t *testing.T) {
 	canvas := NewMockCanvas(64, 64)
 	game := ScoreboardLiveGame{

@@ -1285,27 +1285,61 @@ func drawLiveGameStatRow(c PixelCanvas, xOffset, y int, label, awayVal, homeVal 
 	drawText5x8CenteredInRangeAtOffset(c, 44, 20, xOffset, y, homeVal, homeCol)
 }
 
-func liveGameStatusLine(game ScoreboardLiveGame) string {
+func liveGameStatusHalf(game ScoreboardLiveGame) string {
 	half := strings.ToUpper(strings.TrimSpace(game.HalfInning))
 	switch half {
 	case "TOP":
-		half = "T"
+		return "T"
 	case "BOTTOM":
-		half = "B"
+		return "B"
 	case "MID":
-		half = "M"
+		return "M"
 	case "END":
-		half = "E"
+		return "E"
 	default:
-		half = trimToChars(half, 1)
+		return trimToChars(half, 1)
 	}
-	line := fmt.Sprintf("%s%d %d-%d", half, game.Inning, game.Balls, game.Strikes)
-	return trimText5x8ToWidth(line, 62)
+}
+
+func liveGameStatusInningText(game ScoreboardLiveGame) string {
+	return fmt.Sprintf("%s%d", liveGameStatusHalf(game), game.Inning)
+}
+
+func measureLiveGameStatusTextWidth(game ScoreboardLiveGame) int {
+	inningText := liveGameStatusInningText(game)
+	ballsText := fmt.Sprintf("%d", game.Balls)
+	strikesText := fmt.Sprintf("%d", game.Strikes)
+	inningGap := 3
+	countDashGap := 0
+	dashW := 3
+	return measureText5x8Width(inningText) + inningGap + measureText5x8Width(ballsText) + countDashGap + dashW + countDashGap + measureText5x8Width(strikesText)
+}
+
+func drawLiveGameStatusText(c PixelCanvas, x, y int, game ScoreboardLiveGame, textCol color.RGBA) int {
+	inningText := liveGameStatusInningText(game)
+	ballsText := fmt.Sprintf("%d", game.Balls)
+	strikesText := fmt.Sprintf("%d", game.Strikes)
+	inningGap := 3
+	countDashGap := 0
+
+	DrawText5x8(c, x, y, inningText, textCol)
+	x += measureText5x8Width(inningText) + inningGap
+	DrawText5x8(c, x, y, ballsText, textCol)
+	x += measureText5x8Width(ballsText) + countDashGap
+	drawCompactStatusDash(c, x, y, textCol)
+	x += 3 + countDashGap
+	DrawText5x8(c, x, y, strikesText, textCol)
+	return x + measureText5x8Width(strikesText)
+}
+
+func drawCompactStatusDash(c PixelCanvas, x, y int, col color.RGBA) {
+	for dx := 0; dx < 3; dx++ {
+		c.Set(x+dx, y+3, col)
+	}
 }
 
 func drawLiveGameStatusRow(c PixelCanvas, y int, game ScoreboardLiveGame, textCol, outFillCol color.RGBA) {
-	status := liveGameStatusLine(game)
-	textW := measureText5x8Width(status)
+	textW := measureLiveGameStatusTextWidth(game)
 	circleW := 7
 	circleGap := 2
 	textGap := 3
@@ -1314,8 +1348,7 @@ func drawLiveGameStatusRow(c PixelCanvas, y int, game ScoreboardLiveGame, textCo
 	if x < 0 {
 		x = 0
 	}
-	DrawText5x8(c, x, y, status, textCol)
-	circleX := x + textW + textGap
+	circleX := drawLiveGameStatusText(c, x, y, game, textCol) + textGap
 	for i := 0; i < 3; i++ {
 		drawOutCircle(c, circleX+i*(circleW+circleGap), y+1, i < game.Outs, textCol, outFillCol)
 	}
