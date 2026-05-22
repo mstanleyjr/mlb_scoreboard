@@ -29,7 +29,6 @@ func main() {
 	configPath := flag.String("config", appconfig.DefaultPath, "path to startup config file")
 	divisionStandingsMonochrome := flag.Bool("division-standings-monochrome", defaults.DivisionStandings.Monochrome, "render division standings text and dividers in light gray")
 	divisionStandingsGreenBackground := flag.Bool("division-standings-green-background", defaults.DivisionStandings.GreenBackground, "render division standings with a dark scoreboard green background")
-	liveGameLastPlayPanelV2 := flag.Bool("live-game-last-play-panel-v2", defaults.LiveGame.LastPlayPanelV2, "render the live-game last-play panel via the buffered v2 slide path")
 	flag.Parse()
 
 	cfg, err := appconfig.Load(*configPath)
@@ -47,15 +46,10 @@ func main() {
 	if visited["division-standings-green-background"] {
 		greenBackground = *divisionStandingsGreenBackground
 	}
-	lastPlayPanelV2 := cfg.LiveGame.LastPlayPanelV2
-	if visited["live-game-last-play-panel-v2"] {
-		lastPlayPanelV2 = *liveGameLastPlayPanelV2
-	}
 
 	scoreboard.SetDivisionStandingsMonochrome(monochrome)
 	scoreboard.SetDivisionStandingsGreenBackground(greenBackground)
 	scoreboard.SetLiveGameTiming(cfg.LiveGame.HoldMS, cfg.LiveGame.SlideMS)
-	scoreboard.SetLiveGameLastPlayPanelV2(lastPlayPanelV2)
 	scoreboard.SetNextMatchupTiming(cfg.NextMatchup.HoldMS, cfg.NextMatchup.SlideMS)
 	scoreboard.SetLastMatchupTiming(cfg.LastMatchup.HoldMS, cfg.LastMatchup.SlideMS)
 

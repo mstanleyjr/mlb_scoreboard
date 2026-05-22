@@ -31,7 +31,6 @@ type Options struct {
 	DivisionStandingsGreenBG    bool
 	LiveGameHoldMS              int
 	LiveGameSlideMS             int
-	LiveGameLastPlayPanelV2     bool
 	NextMatchupHoldMS           int
 	NextMatchupSlideMS          int
 	LastMatchupHoldMS           int
@@ -84,7 +83,6 @@ func RunCLI(args []string) error {
 	rulerY := fs.Int("ruler-y", defaults.Termsim.RulerY, "draw a horizontal ruler at this y (0-63), -1 to disable")
 	divisionStandingsMonochrome := fs.Bool("division-standings-monochrome", defaults.DivisionStandings.Monochrome, "render division standings text and dividers in light gray")
 	divisionStandingsGreenBG := fs.Bool("division-standings-green-background", defaults.DivisionStandings.GreenBackground, "render division standings with a dark scoreboard green background")
-	liveGameLastPlayPanelV2 := fs.Bool("live-game-last-play-panel-v2", defaults.LiveGame.LastPlayPanelV2, "render the live-game last-play panel via the buffered v2 slide path")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -105,7 +103,6 @@ func RunCLI(args []string) error {
 		DivisionStandingsGreenBG:    cfg.DivisionStandings.GreenBackground,
 		LiveGameHoldMS:              cfg.LiveGame.HoldMS,
 		LiveGameSlideMS:             cfg.LiveGame.SlideMS,
-		LiveGameLastPlayPanelV2:     cfg.LiveGame.LastPlayPanelV2,
 		NextMatchupHoldMS:           cfg.NextMatchup.HoldMS,
 		NextMatchupSlideMS:          cfg.NextMatchup.SlideMS,
 		LastMatchupHoldMS:           cfg.LastMatchup.HoldMS,
@@ -129,9 +126,6 @@ func RunCLI(args []string) error {
 	if visited["division-standings-green-background"] {
 		opts.DivisionStandingsGreenBG = *divisionStandingsGreenBG
 	}
-	if visited["live-game-last-play-panel-v2"] {
-		opts.LiveGameLastPlayPanelV2 = *liveGameLastPlayPanelV2
-	}
 
 	return Run(context.Background(), Options{
 		Empty:                       opts.Empty,
@@ -142,7 +136,6 @@ func RunCLI(args []string) error {
 		DivisionStandingsGreenBG:    opts.DivisionStandingsGreenBG,
 		LiveGameHoldMS:              opts.LiveGameHoldMS,
 		LiveGameSlideMS:             opts.LiveGameSlideMS,
-		LiveGameLastPlayPanelV2:     opts.LiveGameLastPlayPanelV2,
 		NextMatchupHoldMS:           opts.NextMatchupHoldMS,
 		NextMatchupSlideMS:          opts.NextMatchupSlideMS,
 		LastMatchupHoldMS:           opts.LastMatchupHoldMS,
@@ -164,7 +157,6 @@ func Run(parent context.Context, opts Options) error {
 	scoreboard.SetDivisionStandingsMonochrome(opts.DivisionStandingsMonochrome)
 	scoreboard.SetDivisionStandingsGreenBackground(opts.DivisionStandingsGreenBG)
 	scoreboard.SetLiveGameTiming(opts.LiveGameHoldMS, opts.LiveGameSlideMS)
-	scoreboard.SetLiveGameLastPlayPanelV2(opts.LiveGameLastPlayPanelV2)
 	scoreboard.SetNextMatchupTiming(opts.NextMatchupHoldMS, opts.NextMatchupSlideMS)
 	scoreboard.SetLastMatchupTiming(opts.LastMatchupHoldMS, opts.LastMatchupSlideMS)
 

@@ -29,15 +29,6 @@ func (c *strictCanvas) Bounds() image.Rectangle {
 	return image.Rect(0, 0, c.w, c.h)
 }
 
-func withLiveGameLastPlayPanelV2(t *testing.T, enabled bool) {
-	t.Helper()
-	prev := liveGameLastPlayPanelV2
-	SetLiveGameLastPlayPanelV2(enabled)
-	t.Cleanup(func() {
-		SetLiveGameLastPlayPanelV2(prev)
-	})
-}
-
 func TestSetLiveGameTimingDefaults(t *testing.T) {
 	SetLiveGameTiming(0, 0)
 	if liveGameHoldDuration != 2200*time.Millisecond || liveGameSlideDuration != 400*time.Millisecond {
@@ -166,8 +157,6 @@ func TestDrawLiveGameFramePitcherPanel(t *testing.T) {
 }
 
 func TestDrawLiveGameFrameLastPlayPanel(t *testing.T) {
-	withLiveGameLastPlayPanelV2(t, false)
-
 	canvas := NewMockCanvas(64, 64)
 	game := ScoreboardLiveGame{
 		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
@@ -181,45 +170,13 @@ func TestDrawLiveGameFrameLastPlayPanel(t *testing.T) {
 		NextPanelIndex: -1,
 	})
 
-	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
 	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
-	if countColorInBand(canvas, grey, 29, 36) == 0 {
-		t.Fatalf("expected last play title to render")
-	}
-	if countColorInBand(canvas, orange, 38, 63) == 0 {
+	if countColorInBand(canvas, orange, 29, 63) == 0 {
 		t.Fatalf("expected last play text to render")
 	}
 }
 
-func TestDrawLiveGameFrameLastPlayPanelV2Renders(t *testing.T) {
-	withLiveGameLastPlayPanelV2(t, true)
-
-	canvas := NewMockCanvas(64, 64)
-	game := ScoreboardLiveGame{
-		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
-		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
-		LastPlayNotation: "RBI single to center",
-	}
-
-	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
-		Game:           game,
-		PanelIndex:     3,
-		NextPanelIndex: -1,
-	})
-
-	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
-	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
-	if countColorInBand(canvas, grey, 29, 36) == 0 {
-		t.Fatalf("expected v2 last play title to render")
-	}
-	if countColorInBand(canvas, orange, 38, 63) == 0 {
-		t.Fatalf("expected v2 last play content to render")
-	}
-}
-
-func TestDrawLiveGameFrameLastPlayPanelV2DoesNotBleedWhenOffscreen(t *testing.T) {
-	withLiveGameLastPlayPanelV2(t, true)
-
+func TestDrawLiveGameFrameLastPlayPanelDoesNotBleedWhenOffscreen(t *testing.T) {
 	canvas := NewMockCanvas(64, 64)
 	game := ScoreboardLiveGame{
 		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
@@ -236,13 +193,11 @@ func TestDrawLiveGameFrameLastPlayPanelV2DoesNotBleedWhenOffscreen(t *testing.T)
 
 	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
 	if countColorInBand(canvas, orange, 29, 63) != 0 {
-		t.Fatalf("expected offscreen v2 last play panel to leave no visible orange pixels")
+		t.Fatalf("expected offscreen last play panel to leave no visible orange pixels")
 	}
 }
 
-func TestDrawLiveGameFrameLastPlayPanelV2ClipsRightEdge(t *testing.T) {
-	withLiveGameLastPlayPanelV2(t, true)
-
+func TestDrawLiveGameFrameLastPlayPanelClipsRightEdge(t *testing.T) {
 	canvas := newStrictCanvas(64, 64)
 	game := ScoreboardLiveGame{
 		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},

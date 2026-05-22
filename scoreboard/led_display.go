@@ -30,7 +30,6 @@ const (
 
 var divisionStandingsMonochrome bool
 var divisionStandingsGreenBackground bool
-var liveGameLastPlayPanelV2 bool
 var nextMatchupHoldDuration = 2500 * time.Millisecond
 var nextMatchupSlideDuration = 500 * time.Millisecond
 var lastMatchupHoldDuration = 2500 * time.Millisecond
@@ -88,10 +87,6 @@ func SetLiveGameTiming(holdMS, slideMS int) {
 	}
 	liveGameHoldDuration = time.Duration(holdMS) * time.Millisecond
 	liveGameSlideDuration = time.Duration(slideMS) * time.Millisecond
-}
-
-func SetLiveGameLastPlayPanelV2(enabled bool) {
-	liveGameLastPlayPanelV2 = enabled
 }
 
 func divisionStandingsColors() divisionStandingsPalette {
@@ -916,7 +911,6 @@ func DrawLiveGameFrame(c PixelCanvas, frame ScoreboardLiveGameFrame) {
 	}
 
 	drawLiveGameStaticTop(c, frame.Game)
-	// Only draw the bottom panel for the current panel if not sliding
 	if frame.NextPanelIndex < 0 {
 		drawLiveGameBottomPanelFrame(c, frame.Game, frame.PanelIndex, 0)
 	} else {
@@ -926,7 +920,7 @@ func DrawLiveGameFrame(c PixelCanvas, frame ScoreboardLiveGameFrame) {
 }
 
 func drawLiveGameBottomPanelFrame(c PixelCanvas, game ScoreboardLiveGame, panelIndex int, xOffset int) {
-	if liveGameLastPlayPanelV2 && panelIndex == 3 {
+	if panelIndex == 3 {
 		drawLiveGameLastPlayPanelBuffered(c, game, xOffset)
 		return
 	}
@@ -1044,24 +1038,22 @@ func drawLiveGameBottomPanel(c PixelCanvas, game ScoreboardLiveGame, panelIndex 
 		drawText5x8CenteredAtOffset(c, xOffset, 47, liveGamePitcherSecondaryLine(game), grey)
 		drawText5x8CenteredAtOffset(c, xOffset, 56, liveGamePitcherTertiaryLine(game), white)
 	case 3:
-		drawLiveGameLastPlayPanel(c, game, xOffset, grey, orange)
+		drawLiveGameLastPlayPanel(c, game, xOffset, orange)
 	}
 }
 
-func drawLiveGameLastPlayPanel(c PixelCanvas, game ScoreboardLiveGame, xOffset int, titleCol, accentCol color.RGBA) {
-	drawText5x8CenteredAtOffset(c, xOffset, 29, "LAST PLAY", titleCol)
-
+func drawLiveGameLastPlayPanel(c PixelCanvas, game ScoreboardLiveGame, xOffset int, accentCol color.RGBA) {
 	notation := strings.TrimSpace(game.LastPlayNotation)
 	if notation == "" {
 		lines := liveGameLastPlayLines(game)
 		for i, line := range lines {
-			drawText5x8CenteredAtOffset(c, xOffset, 38+i*9, line, accentCol)
+			drawText5x8CenteredAtOffset(c, xOffset, 31+i*9, line, accentCol)
 		}
 		return
 	}
 
 	panelH := 64
-	startY := 39
+	startY := 29
 	endY := panelH - 2
 	diamondSize := endY - startY
 	if diamondSize > panelH {
@@ -1078,10 +1070,9 @@ func drawLiveGameLastPlayPanel(c PixelCanvas, game ScoreboardLiveGame, xOffset i
 
 func drawLiveGameLastPlayPanelBuffered(c PixelCanvas, game ScoreboardLiveGame, xOffset int) {
 	panel := NewMockCanvas(64, 64)
-	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
 	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
 
-	drawLiveGameLastPlayPanel(panel, game, 0, grey, orange)
+	drawLiveGameLastPlayPanel(panel, game, 0, orange)
 
 	bounds := c.Bounds()
 	xStart := 0
