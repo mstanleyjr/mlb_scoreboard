@@ -598,6 +598,45 @@ func scorekeepingAppendRBIs(notation string, rbi *int32) string {
 	return fmt.Sprintf("%s, %d RBI", notation, *rbi)
 }
 
+func shortLastPlayDescription(play *statsapi.BaseballPlayRestObject) string {
+	if play == nil || play.Result == nil {
+		return ""
+	}
+	if isPitchingChangeResult(play.Result) {
+		return "Pitching Change"
+	}
+	if play.Result.Description == nil {
+		return ""
+	}
+	return *play.Result.Description
+}
+
+func isPitchingChangeResult(result *statsapi.Result) bool {
+	if result == nil {
+		return false
+	}
+	if result.EventType != nil {
+		switch statsapi.EventType(strings.ToLower(strings.TrimSpace(*result.EventType))) {
+		case statsapi.EventTypePitcherSwitch, statsapi.EventTypePitchingSubstitution:
+			return true
+		}
+	}
+	event := ""
+	if result.Event != nil {
+		event = strings.ToLower(strings.TrimSpace(*result.Event))
+	}
+	description := ""
+	if result.Description != nil {
+		description = strings.ToLower(strings.TrimSpace(*result.Description))
+	}
+	return strings.Contains(event, "pitching change") ||
+		strings.Contains(event, "pitching substitution") ||
+		strings.Contains(event, "pitcher switch") ||
+		strings.Contains(description, "pitching change") ||
+		strings.Contains(description, "pitching substitution") ||
+		strings.Contains(description, "pitcher switch")
+}
+
 func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, error) {
 	if game.LiveData == nil {
 		return ScoreboardLiveGame{}, fmt.Errorf("no live data available")
@@ -683,9 +722,7 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 
 					if lastPlayData.Result != nil {
 						lastPlayNotation = scorekeepingLastPlayNotation(&lastPlayData)
-						if lastPlayData.Result.Description != nil {
-							lastPlay = *lastPlayData.Result.Description
-						}
+						lastPlay = shortLastPlayDescription(&lastPlayData)
 						if lastPlayData.Result.Rbi != nil {
 							lastPlayRBIs = int(*lastPlayData.Result.Rbi)
 						}

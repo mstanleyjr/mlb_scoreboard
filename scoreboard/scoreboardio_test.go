@@ -172,6 +172,36 @@ func TestScorekeepingLastPlayNotation(t *testing.T) {
 	}
 }
 
+func TestShortLastPlayDescriptionPitchingChange(t *testing.T) {
+	ptr := func(s string) *string { return &s }
+	play := &statsapi.BaseballPlayRestObject{
+		Result: &statsapi.Result{
+			EventType:   ptr(string(statsapi.EventTypePitchingSubstitution)),
+			Event:       ptr("Pitching Substitution"),
+			Description: ptr("Pitching Change: Joe Smith replaces John Doe."),
+		},
+	}
+
+	if got := shortLastPlayDescription(play); got != "Pitching Change" {
+		t.Fatalf("shortLastPlayDescription() = %q, want %q", got, "Pitching Change")
+	}
+}
+
+func TestShortLastPlayDescriptionKeepsNormalDescription(t *testing.T) {
+	ptr := func(s string) *string { return &s }
+	play := &statsapi.BaseballPlayRestObject{
+		Result: &statsapi.Result{
+			EventType:   ptr(string(statsapi.EventTypeSingle)),
+			Event:       ptr("Single"),
+			Description: ptr("Line drive single to center."),
+		},
+	}
+
+	if got := shortLastPlayDescription(play); got != "Line drive single to center." {
+		t.Fatalf("shortLastPlayDescription() = %q, want %q", got, "Line drive single to center.")
+	}
+}
+
 func TestGetScoreboardLiveGameBatter_NilSafe(t *testing.T) {
 	assertNoPanic(t, "empty game", func() {
 		got := getScoreboardLiveGameBatter(ScoreboardInformation{}, statsapi.PlayerStatsResponse{}, statsapi.BaseballGameRestObject{}, ScoreboardLiveGame{})
