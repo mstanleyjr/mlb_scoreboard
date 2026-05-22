@@ -25,6 +25,9 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 			"monochrome": true,
 			"green_background": true
 		},
+		"hardware": {
+			"brightness": 80
+		},
 		"live_game": {
 			"hold_ms": 1800
 		},
@@ -48,6 +51,9 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 
 	if !cfg.DivisionStandings.Monochrome || !cfg.DivisionStandings.GreenBackground {
 		t.Fatalf("expected division standings config to load, got %+v", cfg.DivisionStandings)
+	}
+	if cfg.Hardware.Brightness != 80 {
+		t.Fatalf("expected hardware brightness 80, got %+v", cfg.Hardware)
 	}
 	if cfg.LiveGame.HoldMS != 1800 || cfg.LiveGame.SlideMS != 400 {
 		t.Fatalf("expected live game config to merge with defaults, got %+v", cfg.LiveGame)

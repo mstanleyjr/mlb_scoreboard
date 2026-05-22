@@ -986,18 +986,18 @@ func drawLiveGameStaticTop(c PixelCanvas, game ScoreboardLiveGame) {
 	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
 	awayAbbr := teamAbbrev(game.AwayTeam.ShortName, game.AwayTeam.Name)
 	homeAbbr := teamAbbrev(game.HomeTeam.ShortName, game.HomeTeam.Name)
-	drawText5x8CenteredSegmentsAtOffset(c, 0, 0, []text5x8Segment{
+	drawText5x8CenteredSegmentsAtOffset(c, 0, 1, []text5x8Segment{
 		{text: awayAbbr, col: awayColor},
 		{text: " @ ", col: white},
 		{text: homeAbbr, col: homeColor},
 	})
-	drawText5x8CenteredSegmentsInRangeAtOffset(c, -3, 48, 0, 9, []text5x8Segment{
+	drawText5x8CenteredSegmentsInRangeAtOffset(c, -3, 48, 0, 10, []text5x8Segment{
 		{text: fmt.Sprintf("%d", game.AwayTeam.Runs), col: awayColor},
 		{text: " - ", col: white},
 		{text: fmt.Sprintf("%d", game.HomeTeam.Runs), col: homeColor},
 	})
-	DrawBases(c, 50, 15, &game.Bases)
-	drawLiveGameStatusRow(c, 18, game, grey, white)
+	DrawBases(c, 50, 16, &game.Bases)
+	drawLiveGameStatusRow(c, 19, game, grey, white)
 }
 
 func drawLiveGameBottomPanel(c PixelCanvas, game ScoreboardLiveGame, panelIndex int, xOffset int) {
@@ -1013,25 +1013,25 @@ func drawLiveGameBottomPanel(c PixelCanvas, game ScoreboardLiveGame, panelIndex 
 
 	switch panelIndex {
 	case 0:
-		drawLiveGameStatRow(c, xOffset, 28, "R", fmt.Sprintf("%d", game.AwayTeam.Runs), fmt.Sprintf("%d", game.HomeTeam.Runs), grey, awayColor, homeColor)
-		drawLiveGameStatRow(c, xOffset, 37, "H", fmt.Sprintf("%d", game.AwayTeam.Hits), fmt.Sprintf("%d", game.HomeTeam.Hits), grey, awayColor, homeColor)
-		drawLiveGameStatRow(c, xOffset, 46, "E", fmt.Sprintf("%d", game.AwayTeam.Errors), fmt.Sprintf("%d", game.HomeTeam.Errors), grey, awayColor, homeColor)
-		drawLiveGameStatRow(c, xOffset, 55, "L", fmt.Sprintf("%d", game.AwayTeam.LOB), fmt.Sprintf("%d", game.HomeTeam.LOB), grey, awayColor, homeColor)
+		drawLiveGameStatRow(c, xOffset, 29, "R", fmt.Sprintf("%d", game.AwayTeam.Runs), fmt.Sprintf("%d", game.HomeTeam.Runs), grey, awayColor, homeColor)
+		drawLiveGameStatRow(c, xOffset, 38, "H", fmt.Sprintf("%d", game.AwayTeam.Hits), fmt.Sprintf("%d", game.HomeTeam.Hits), grey, awayColor, homeColor)
+		drawLiveGameStatRow(c, xOffset, 47, "E", fmt.Sprintf("%d", game.AwayTeam.Errors), fmt.Sprintf("%d", game.HomeTeam.Errors), grey, awayColor, homeColor)
+		drawLiveGameStatRow(c, xOffset, 56, "L", fmt.Sprintf("%d", game.AwayTeam.LOB), fmt.Sprintf("%d", game.HomeTeam.LOB), grey, awayColor, homeColor)
 	case 1:
-		drawText5x8CenteredAtOffset(c, xOffset, 28, liveGameBatterName(game), liveGameBatterColor(game))
-		drawText5x8CenteredAtOffset(c, xOffset, 37, liveGameBatterPrimaryLine(game), grey)
-		drawText5x8CenteredAtOffset(c, xOffset, 46, liveGameBatterSecondaryLine(game), grey)
-		drawText5x8CenteredAtOffset(c, xOffset, 55, liveGameBatterSummaryLine(game), white)
+		drawText5x8CenteredAtOffset(c, xOffset, 29, liveGameBatterName(game), liveGameBatterColor(game))
+		drawText5x8CenteredAtOffset(c, xOffset, 38, liveGameBatterPrimaryLine(game), grey)
+		drawText5x8CenteredAtOffset(c, xOffset, 47, liveGameBatterSecondaryLine(game), grey)
+		drawText5x8CenteredAtOffset(c, xOffset, 56, liveGameBatterSummaryLine(game), white)
 	case 2:
-		drawText5x8CenteredAtOffset(c, xOffset, 28, liveGamePitcherName(game), liveGamePitcherColor(game))
-		drawText5x8CenteredAtOffset(c, xOffset, 37, liveGamePitcherPrimaryLine(game), grey)
-		drawText5x8CenteredAtOffset(c, xOffset, 46, liveGamePitcherSecondaryLine(game), grey)
-		drawText5x8CenteredAtOffset(c, xOffset, 55, liveGamePitcherTertiaryLine(game), white)
+		drawText5x8CenteredAtOffset(c, xOffset, 29, liveGamePitcherName(game), liveGamePitcherColor(game))
+		drawText5x8CenteredAtOffset(c, xOffset, 38, liveGamePitcherPrimaryLine(game), grey)
+		drawText5x8CenteredAtOffset(c, xOffset, 47, liveGamePitcherSecondaryLine(game), grey)
+		drawText5x8CenteredAtOffset(c, xOffset, 56, liveGamePitcherTertiaryLine(game), white)
 	case 3:
-		drawText5x8CenteredAtOffset(c, xOffset, 28, "LAST PLAY", grey)
+		drawText5x8CenteredAtOffset(c, xOffset, 29, "LAST PLAY", grey)
 		lines := liveGameLastPlayLines(game)
 		for i, line := range lines {
-			drawText5x8CenteredAtOffset(c, xOffset, 37+i*9, line, orange)
+			drawText5x8CenteredAtOffset(c, xOffset, 38+i*9, line, orange)
 		}
 	}
 }

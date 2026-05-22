@@ -3,8 +3,11 @@
     "monochrome": false,
     "green_background": false
   },
+  "hardware": {
+    "brightness": 75
+  },
   "live_game": {
-    "hold_ms": 3500,
+    "hold_ms": 5000,
     "slide_ms": 500
   },
   "next_matchup": {

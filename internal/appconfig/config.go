@@ -11,6 +11,7 @@ const DefaultPath = "mlb_scoreboard.json"
 
 type Config struct {
 	DivisionStandings DivisionStandingsConfig `json:"division_standings"`
+	Hardware          HardwareConfig          `json:"hardware"`
 	LiveGame          LiveGameConfig          `json:"live_game"`
 	NextMatchup       NextMatchupConfig       `json:"next_matchup"`
 	LastMatchup       LastMatchupConfig       `json:"last_matchup"`
@@ -20,6 +21,10 @@ type Config struct {
 type DivisionStandingsConfig struct {
 	Monochrome      bool `json:"monochrome"`
 	GreenBackground bool `json:"green_background"`
+}
+
+type HardwareConfig struct {
+	Brightness int `json:"brightness"`
 }
 
 type LiveGameConfig struct {
@@ -47,6 +52,9 @@ type TermsimConfig struct {
 func DefaultConfig() Config {
 	return Config{
 		DivisionStandings: DivisionStandingsConfig{},
+		Hardware: HardwareConfig{
+			Brightness: 100,
+		},
 		LiveGame: LiveGameConfig{
 			HoldMS:  2200,
 			SlideMS: 400,

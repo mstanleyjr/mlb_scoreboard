@@ -38,25 +38,25 @@ func TestDrawLiveGameFrameStaticTopAndRHELPanel(t *testing.T) {
 	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
 	baseFill := color.RGBA{R: 200, G: 100, B: 0, A: 255}
 
-	if countColorInBand(canvas, awayTeam, 0, 8) == 0 {
+	if countColorInBand(canvas, awayTeam, 1, 9) == 0 {
 		t.Fatalf("expected away abbreviation to render in team color")
 	}
-	if countColorInBand(canvas, homeTeam, 0, 8) == 0 {
+	if countColorInBand(canvas, homeTeam, 1, 9) == 0 {
 		t.Fatalf("expected home abbreviation to render in team color")
 	}
-	if countColorInBand(canvas, white, 9, 17) == 0 {
+	if countColorInBand(canvas, white, 10, 18) == 0 {
 		t.Fatalf("expected score line to render")
 	}
-	if countColorInBand(canvas, grey, 18, 25) == 0 {
+	if countColorInBand(canvas, grey, 19, 26) == 0 {
 		t.Fatalf("expected inning/count status line to render")
 	}
-	if countColorInBand(canvas, white, 18, 25) == 0 {
+	if countColorInBand(canvas, white, 19, 26) == 0 {
 		t.Fatalf("expected filled out circles to render in status line")
 	}
-	if countColorInBand(canvas, baseFill, 8, 18) == 0 {
+	if countColorInBand(canvas, baseFill, 9, 19) == 0 {
 		t.Fatalf("expected occupied bases to render in static top")
 	}
-	if countColorInBand(canvas, grey, 28, 62) == 0 {
+	if countColorInBand(canvas, grey, 29, 63) == 0 {
 		t.Fatalf("expected RHEL labels to render")
 	}
 }
@@ -86,13 +86,13 @@ func TestDrawLiveGameFrameBatterPanel(t *testing.T) {
 	batterTeam := GetTeamColor(game.HomeTeam.Name)
 	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
 	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
-	if countColorInBand(canvas, batterTeam, 28, 35) == 0 {
+	if countColorInBand(canvas, batterTeam, 29, 36) == 0 {
 		t.Fatalf("expected batter name to render in batting team color")
 	}
-	if countColorInBand(canvas, grey, 37, 53) == 0 {
+	if countColorInBand(canvas, grey, 38, 54) == 0 {
 		t.Fatalf("expected batter detail lines to render")
 	}
-	if countColorInBand(canvas, white, 55, 62) == 0 {
+	if countColorInBand(canvas, white, 56, 63) == 0 {
 		t.Fatalf("expected batter summary to render")
 	}
 }
@@ -122,13 +122,13 @@ func TestDrawLiveGameFramePitcherPanel(t *testing.T) {
 	pitcherTeam := GetTeamColor(game.AwayTeam.Name)
 	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
 	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
-	if countColorInBand(canvas, pitcherTeam, 28, 35) == 0 {
+	if countColorInBand(canvas, pitcherTeam, 29, 36) == 0 {
 		t.Fatalf("expected pitcher name to render in fielding team color")
 	}
-	if countColorInBand(canvas, grey, 37, 53) == 0 {
+	if countColorInBand(canvas, grey, 38, 54) == 0 {
 		t.Fatalf("expected pitcher detail lines to render")
 	}
-	if countColorInBand(canvas, white, 55, 62) == 0 {
+	if countColorInBand(canvas, white, 56, 63) == 0 {
 		t.Fatalf("expected pitcher tertiary line to render")
 	}
 }
@@ -149,10 +149,10 @@ func TestDrawLiveGameFrameLastPlayPanel(t *testing.T) {
 
 	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
 	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
-	if countColorInBand(canvas, grey, 28, 35) == 0 {
+	if countColorInBand(canvas, grey, 29, 36) == 0 {
 		t.Fatalf("expected last play title to render")
 	}
-	if countColorInBand(canvas, orange, 37, 62) == 0 {
+	if countColorInBand(canvas, orange, 38, 63) == 0 {
 		t.Fatalf("expected last play text to render")
 	}
 }
