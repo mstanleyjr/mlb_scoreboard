@@ -1031,7 +1031,17 @@ func drawLiveGameBottomPanel(c PixelCanvas, game ScoreboardLiveGame, panelIndex 
 		drawText5x8CenteredAtOffset(c, xOffset, 29, "LAST PLAY", grey)
 		// If we have a concise scorekeeping notation, render a large diamond (scorebook) graphic
 		if strings.TrimSpace(game.LastPlayNotation) != "" {
-			drawScorebookDiamondCentered(c, xOffset, 34, orange)
+			// Calculate diamond size and position
+			panelH := c.Bounds().Max.Y
+			startY := 37 + 2   // bottom of LAST PLAY + 2 rows
+			endY := panelH - 2 // 2 rows from bottom
+			diamondSize := endY - startY
+			if diamondSize > panelH {
+				diamondSize = panelH
+			}
+			if diamondSize > 0 {
+				drawScorebookDiamondCentered(c, xOffset, startY, diamondSize, orange)
+			}
 		} else {
 			lines := liveGameLastPlayLines(game)
 			for i, line := range lines {
@@ -1175,31 +1185,23 @@ func liveGameLastPlayLines(game ScoreboardLiveGame) []string {
 // drawScorebookDiamondCentered draws a simple diamond (base) graphic centered
 // in the bottom panel area. xOffset is the panel's horizontal offset; topY is the
 // starting Y coordinate to draw the diamond pattern.
-func drawScorebookDiamondCentered(c PixelCanvas, xOffset, topY int, col color.RGBA) {
-	// Outline-only diamond pattern (9 rows x 11 cols)
-	pattern := []string{
-		"     ##     ",
-		"    #  #    ",
-		"   #    #   ",
-		"  #      #  ",
-		" #        # ",
-		"  #      #  ",
-		"   #    #   ",
-		"    #  #    ",
-		"     ##     ",
-	}
-	pw := len(pattern[0])
+// drawScorebookDiamondCentered draws a scalable, outline-only diamond (square) centered in the panel.
+func drawScorebookDiamondCentered(c PixelCanvas, xOffset, topY, size int, col color.RGBA) {
 	panelW := c.Bounds().Max.X
-	x := xOffset + (panelW-pw)/2
+	x := xOffset + (panelW-size)/2
 	if x < xOffset {
 		x = xOffset
 	}
-	for py, row := range pattern {
-		for px, ch := range row {
-			if ch == '#' {
-				c.Set(x+px, topY+py, col)
-			}
-		}
+	// Draw outline diamond: four lines from corners to midpoints
+	for i := 0; i < size; i++ {
+		// Top-left to top
+		c.Set(x+size/2-i/2, topY+i, col)
+		// Top-right to top
+		c.Set(x+size/2+i/2, topY+i, col)
+		// Bottom-left to bottom
+		c.Set(x+size/2-i/2, topY+size-1-i, col)
+		// Bottom-right to bottom
+		c.Set(x+size/2+i/2, topY+size-1-i, col)
 	}
 }
 

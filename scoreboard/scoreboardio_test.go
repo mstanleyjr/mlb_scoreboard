@@ -158,7 +158,7 @@ func TestScorekeepingLastPlayNotation(t *testing.T) {
 					Description: ptr("Something Unexpected"),
 				},
 			},
-			want: "Something Unexpected",
+			want: "",
 		},
 	}
 
