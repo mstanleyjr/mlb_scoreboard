@@ -4,16 +4,16 @@
     "green_background": false
   },
   "live_game": {
-    "hold_ms": 2200,
-    "slide_ms": 400
+    "hold_ms": 3500,
+    "slide_ms": 500
   },
   "next_matchup": {
-    "hold_ms": 3000,
-    "slide_ms": 600
+    "hold_ms": 3500,
+    "slide_ms": 500
   },
   "last_matchup": {
-    "hold_ms": 3000,
-    "slide_ms": 600
+    "hold_ms": 3500,
+    "slide_ms": 500
   },
   "termsim": {
     "empty": " ",

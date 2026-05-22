@@ -1131,26 +1131,22 @@ func liveGamePitcherColor(game ScoreboardLiveGame) color.RGBA {
 
 func liveGamePitcherPrimaryLine(game ScoreboardLiveGame) string {
 	hand := pitcherHandLabel(game.CurrentPitcher)
-	era := strings.TrimSpace(game.CurrentPitcher.ERA)
-	line := strings.TrimSpace(strings.Join([]string{hand, "ERA", era}, " "))
-	if line == "" {
-		line = "ERA TBD"
+	if hand == "" {
+		return "PITCHER"
 	}
-	return trimText5x8ToWidth(strings.ToUpper(line), 62)
+	return trimText5x8ToWidth(strings.ToUpper(hand), 62)
 }
 
 func liveGamePitcherSecondaryLine(game ScoreboardLiveGame) string {
-	if game.CurrentPitcher.Wins == 0 && game.CurrentPitcher.Losses == 0 {
-		return "W-L TBD"
+	era := strings.TrimSpace(game.CurrentPitcher.ERA)
+	if era == "" {
+		return "ERA TBD"
 	}
-	return trimText5x8ToWidth(strings.ToUpper(fmt.Sprintf("W-L %d-%d", game.CurrentPitcher.Wins, game.CurrentPitcher.Losses)), 62)
+	return trimText5x8ToWidth(strings.ToUpper("ERA "+era), 62)
 }
 
 func liveGamePitcherTertiaryLine(game ScoreboardLiveGame) string {
-	if game.CurrentPitcher.Saves > 0 {
-		return trimText5x8ToWidth(strings.ToUpper(fmt.Sprintf("SV %d", game.CurrentPitcher.Saves)), 62)
-	}
-	return "ON MOUND"
+	return trimText5x8ToWidth(strings.ToUpper(fmt.Sprintf("W-L %d-%d", game.CurrentPitcher.Wins, game.CurrentPitcher.Losses)), 62)
 }
 
 func liveGameLastPlayLines(game ScoreboardLiveGame) []string {
