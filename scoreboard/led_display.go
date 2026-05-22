@@ -1124,7 +1124,7 @@ func drawLastPlayNotationCenteredAtOffset(c PixelCanvas, xOffset, y int, game Sc
 		drawMirroredK5x8CenteredAtOffset(c, xOffset, y, col)
 		return
 	}
-	drawText5x8CenteredAtOffset(c, xOffset, y, notation, col)
+	drawTightText5x8CenteredAtOffset(c, xOffset, y, notation, col)
 }
 
 func lastPlayDisplayNotation(game ScoreboardLiveGame) string {
@@ -1165,6 +1165,66 @@ func drawMirroredK5x8CenteredAtOffset(c PixelCanvas, xOffset, y int, col color.R
 			}
 		}
 	}
+}
+
+func drawTightText5x8CenteredAtOffset(c PixelCanvas, xOffset, y int, text string, col color.RGBA) {
+	panelWidth := c.Bounds().Max.X
+	x := xOffset + (panelWidth-measureTightText5x8Width(text))/2
+	if x < xOffset {
+		x = xOffset
+	}
+	DrawTightText5x8(c, x, y, text, col)
+}
+
+func DrawTightText5x8(c PixelCanvas, x, y int, text string, col color.RGBA) {
+	bounds := c.Bounds()
+	cx := x
+	runes := []rune(text)
+	for i, ch := range runes {
+		if cx >= bounds.Max.X {
+			break
+		}
+
+		glyph, ok := font5x8[ch]
+		if !ok {
+			glyph = font5x8[' ']
+		}
+
+		for row := 0; row < fontH5x8; row++ {
+			for colIdx := 0; colIdx < fontW5x8; colIdx++ {
+				if glyph[row]&(1<<uint(fontW5x8-1-colIdx)) != 0 {
+					px := cx + colIdx
+					py := y + row
+					if px >= 0 && px < bounds.Max.X && py >= 0 && py < bounds.Max.Y {
+						c.Set(px, py, col)
+					}
+				}
+			}
+		}
+		cx += tightAdvance5x8(ch, i == len(runes)-1)
+	}
+}
+
+func measureTightText5x8Width(text string) int {
+	width := 0
+	runes := []rune(text)
+	for i, ch := range runes {
+		width += tightAdvance5x8(ch, i == len(runes)-1)
+	}
+	return width
+}
+
+func tightAdvance5x8(ch rune, isLast bool) int {
+	if ch == ' ' {
+		if isLast {
+			return 0
+		}
+		return 3
+	}
+	if isLast {
+		return fontW5x8
+	}
+	return fontW5x8
 }
 
 func mirror5BitRow(row byte) byte {

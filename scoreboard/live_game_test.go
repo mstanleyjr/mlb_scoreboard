@@ -43,6 +43,13 @@ func TestSetLiveGameTimingDefaults(t *testing.T) {
 	}
 }
 
+func TestMeasureTightText5x8WidthShrinksNotationTracking(t *testing.T) {
+	notation := "GDP6-4"
+	if got, want := measureTightText5x8Width(notation), measureText5x8Width(notation); got >= want {
+		t.Fatalf("expected tight tracking width %d to be smaller than normal %d", got, want)
+	}
+}
+
 func TestMeasureLiveGameStatusTextWidthTightensExtraInningsSpacing(t *testing.T) {
 	game := ScoreboardLiveGame{Inning: 10, HalfInning: "bottom", Balls: 3, Strikes: 2}
 	if got, wantMax := measureLiveGameStatusTextWidth(game), measureText5x8Width("B10 3-2")-1; got > wantMax {
