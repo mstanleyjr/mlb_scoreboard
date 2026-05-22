@@ -1032,25 +1032,20 @@ func drawLiveGameBottomPanel(c PixelCanvas, game ScoreboardLiveGame, panelIndex 
 		drawText5x8CenteredAtOffset(c, xOffset, 56, liveGamePitcherTertiaryLine(game), white)
 	case 3:
 		drawText5x8CenteredAtOffset(c, xOffset, 29, "LAST PLAY", grey)
-		// If we have a concise scorekeeping notation, render a large diamond (scorebook) graphic
-		if strings.TrimSpace(game.LastPlayNotation) != "" {
-			// Calculate diamond size and position
+		// Only draw the diamond if this is the LAST PLAY panel (3) and xOffset is in visible range
+		if strings.TrimSpace(game.LastPlayNotation) != "" && xOffset >= -63 && xOffset <= 63 {
 			panelH := 64
-			startY := 37 + 2   // bottom of LAST PLAY + 2 rows
-			endY := panelH - 2 // 2 rows from bottom
+			startY := 37 + 2
+			endY := panelH - 2
 			diamondSize := endY - startY
 			if diamondSize > panelH {
 				diamondSize = panelH
 			}
 			if diamondSize > 0 {
-				// Slide diamond with panel by passing xOffset
 				drawScorebookDiamondCentered(c, xOffset, startY, diamondSize, orange)
-
-				// Draw notation centered in the diamond
 				notation := strings.TrimSpace(game.LastPlayNotation)
 				if notation != "" {
-					// Center text in diamond
-					textY := startY + diamondSize/2 - 4 // 4 is half font height (5x8)
+					textY := startY + diamondSize/2 - 4
 					drawText5x8CenteredAtOffset(c, xOffset, textY, notation, orange)
 				}
 			}
