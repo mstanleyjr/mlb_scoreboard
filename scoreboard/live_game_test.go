@@ -179,11 +179,16 @@ func TestDrawLiveGameFrameLastPlayPanel(t *testing.T) {
 	})
 
 	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
+	black := color.RGBA{R: 0, G: 0, B: 0, A: 255}
 	if countColorInBand(canvas, orange, 29, 63) == 0 {
 		t.Fatalf("expected last play text to render")
 	}
-	if mockPixel(canvas, 31, 29) != orange {
-		t.Fatalf("expected achieved-base marker at second base")
+	if mockPixel(canvas, 40, 54) != white || mockPixel(canvas, 40, 36) != white {
+		t.Fatalf("expected white offset advancement path for a double")
+	}
+	if mockPixel(canvas, 50, 45) != black {
+		t.Fatalf("expected old outside runner marker to be removed")
 	}
 	if mockPixel(canvas, 55, 34) != orange || mockPixel(canvas, 55, 41) != orange {
 		t.Fatalf("expected RBI dots on right side")

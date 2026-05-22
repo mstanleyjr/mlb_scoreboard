@@ -1063,12 +1063,13 @@ func drawLiveGameLastPlayPanel(c PixelCanvas, game ScoreboardLiveGame, xOffset i
 		return
 	}
 
+	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
 	drawScorebookDiamondCentered(c, xOffset, startY, diamondSize, accentCol)
-	drawLastPlayAchievedBaseMarkers(c, xOffset, startY, diamondSize, notation, accentCol)
+	drawLastPlayAdvancementPath(c, xOffset, startY, diamondSize, notation, white)
 	drawLastPlayRBIDots(c, xOffset, game.LastPlayRBIs, accentCol)
 
 	textY := startY + diamondSize/2 - 4
-	drawLastPlayNotationCenteredAtOffset(c, xOffset, textY, game, colOr(accentCol))
+	drawLastPlayNotationCenteredAtOffset(c, xOffset, textY, game, accentCol)
 }
 
 func drawLiveGameLastPlayPanelBuffered(c PixelCanvas, game ScoreboardLiveGame, xOffset int) {
@@ -1176,31 +1177,6 @@ func mirror5BitRow(row byte) byte {
 	return mirrored
 }
 
-func drawLastPlayAchievedBaseMarkers(c PixelCanvas, xOffset, topY, size int, notation string, col color.RGBA) {
-	first, second, third, home := lastPlayAchievedBases(notation)
-	if !first && !second && !third && !home {
-		return
-	}
-
-	cx := xOffset + 31
-	cy := topY + size/2
-	r := size / 2
-	markerRadius := 2
-
-	if first {
-		drawSmallDiamondOutline(c, cx+r+3, cy, markerRadius, col)
-	}
-	if second {
-		drawSmallDiamondOutline(c, cx, topY+markerRadius, markerRadius, col)
-	}
-	if third {
-		drawSmallDiamondOutline(c, cx-r-3, cy, markerRadius, col)
-	}
-	if home {
-		drawSmallDiamondOutline(c, cx, topY+size-1-markerRadius, markerRadius, col)
-	}
-}
-
 func lastPlayAchievedBases(notation string) (first, second, third, home bool) {
 	switch strings.ToUpper(strings.TrimSpace(notation)) {
 	case "1B", "BB", "HBP":
@@ -1213,6 +1189,58 @@ func lastPlayAchievedBases(notation string) (first, second, third, home bool) {
 		return true, true, true, true
 	default:
 		return false, false, false, false
+	}
+}
+
+func drawLastPlayAdvancementPath(c PixelCanvas, xOffset, topY, size int, notation string, col color.RGBA) {
+	first, second, third, home := lastPlayAchievedBases(notation)
+	if !first && !second && !third && !home {
+		return
+	}
+
+	panelW := 64
+	x := xOffset + (panelW-size)/2
+	if x < xOffset {
+		x = xOffset
+	}
+	cx, cy := x+size/2, topY+size/2
+	r := size / 2
+
+	if first {
+		drawOffsetDiamondEdge(c, cx, cy, r, "home-first", col)
+	}
+	if second {
+		drawOffsetDiamondEdge(c, cx, cy, r, "first-second", col)
+	}
+	if third {
+		drawOffsetDiamondEdge(c, cx, cy, r, "second-third", col)
+	}
+	if home {
+		drawOffsetDiamondEdge(c, cx, cy, r, "third-home", col)
+	}
+}
+
+func drawOffsetDiamondEdge(c PixelCanvas, cx, cy, r int, edge string, col color.RGBA) {
+	for i := 0; i <= r; i++ {
+		x := cx
+		y := cy
+		switch edge {
+		case "home-first":
+			x = cx + i + 1
+			y = cy + (r - i) + 1
+		case "first-second":
+			x = cx + i + 1
+			y = cy - (r - i) - 1
+		case "second-third":
+			x = cx - i - 1
+			y = cy - (r - i) - 1
+		case "third-home":
+			x = cx - i - 1
+			y = cy + (r - i) + 1
+		default:
+			return
+		}
+		c.Set(x, y, col)
 	}
 }
 
@@ -1249,10 +1277,6 @@ func absInt(v int) int {
 		return -v
 	}
 	return v
-}
-
-func colOr(col color.RGBA) color.RGBA {
-	return col
 }
 
 func drawLiveGameStatRow(c PixelCanvas, xOffset, y int, label, awayVal, homeVal string, labelCol, awayCol, homeCol color.RGBA) {
