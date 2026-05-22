@@ -1133,10 +1133,21 @@ func lastPlayDisplayNotation(game ScoreboardLiveGame) string {
 		return ""
 	}
 	if game.LastPlayRBIs <= 0 {
-		return notation
+		return normalizeLastPlayDisplayNotation(notation)
 	}
 	suffix := fmt.Sprintf(", %d RBI", game.LastPlayRBIs)
-	return strings.TrimSuffix(notation, suffix)
+	return normalizeLastPlayDisplayNotation(strings.TrimSuffix(notation, suffix))
+}
+
+func normalizeLastPlayDisplayNotation(notation string) string {
+	notation = strings.TrimSpace(notation)
+	if notation == "" {
+		return ""
+	}
+	if measureTightText5x8Width(notation) <= 25 {
+		return notation
+	}
+	return strings.ReplaceAll(notation, "-", "")
 }
 
 func isLookingStrikeoutNotation(notation, lastPlay string) bool {

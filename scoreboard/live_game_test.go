@@ -50,6 +50,15 @@ func TestMeasureTightText5x8WidthShrinksNotationTracking(t *testing.T) {
 	}
 }
 
+func TestNormalizeLastPlayDisplayNotationDropsDashWhenStillTooWide(t *testing.T) {
+	if got := normalizeLastPlayDisplayNotation("GDP5-4"); got != "GDP54" {
+		t.Fatalf("normalizeLastPlayDisplayNotation() = %q, want %q", got, "GDP54")
+	}
+	if got := normalizeLastPlayDisplayNotation("K"); got != "K" {
+		t.Fatalf("normalizeLastPlayDisplayNotation() = %q, want %q", got, "K")
+	}
+}
+
 func TestMeasureLiveGameStatusTextWidthTightensExtraInningsSpacing(t *testing.T) {
 	game := ScoreboardLiveGame{Inning: 10, HalfInning: "bottom", Balls: 3, Strikes: 2}
 	if got, wantMax := measureLiveGameStatusTextWidth(game), measureText5x8Width("B10 3-2")-1; got > wantMax {
