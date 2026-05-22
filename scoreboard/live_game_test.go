@@ -156,3 +156,24 @@ func TestDrawLiveGameFrameLastPlayPanel(t *testing.T) {
 		t.Fatalf("expected last play text to render")
 	}
 }
+
+func TestDrawLiveGameFrameLastPlayPanelDoesNotBleedWhenOffscreen(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "RBI single to center",
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     3,
+		NextPanelIndex: 0,
+		SlideOffset:    64,
+	})
+
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	if countColorInBand(canvas, orange, 29, 63) != 0 {
+		t.Fatalf("expected offscreen last play panel to leave no visible orange pixels")
+	}
+}

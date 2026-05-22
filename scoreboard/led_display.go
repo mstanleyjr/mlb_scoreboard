@@ -1031,31 +1031,36 @@ func drawLiveGameBottomPanel(c PixelCanvas, game ScoreboardLiveGame, panelIndex 
 		drawText5x8CenteredAtOffset(c, xOffset, 47, liveGamePitcherSecondaryLine(game), grey)
 		drawText5x8CenteredAtOffset(c, xOffset, 56, liveGamePitcherTertiaryLine(game), white)
 	case 3:
-		drawText5x8CenteredAtOffset(c, xOffset, 29, "LAST PLAY", grey)
-		// Only draw the diamond if this is the LAST PLAY panel (3) and xOffset is in visible range
-		if strings.TrimSpace(game.LastPlayNotation) != "" && xOffset >= -63 && xOffset <= 63 {
-			panelH := 64
-			startY := 37 + 2
-			endY := panelH - 2
-			diamondSize := endY - startY
-			if diamondSize > panelH {
-				diamondSize = panelH
-			}
-			if diamondSize > 0 {
-				drawScorebookDiamondCentered(c, xOffset, startY, diamondSize, orange)
-				notation := strings.TrimSpace(game.LastPlayNotation)
-				if notation != "" {
-					textY := startY + diamondSize/2 - 4
-					drawText5x8CenteredAtOffset(c, xOffset, textY, notation, orange)
-				}
-			}
-		} else {
-			lines := liveGameLastPlayLines(game)
-			for i, line := range lines {
-				drawText5x8CenteredAtOffset(c, xOffset, 38+i*9, line, orange)
-			}
-		}
+		drawLiveGameLastPlayPanel(c, game, xOffset, grey, orange)
 	}
+}
+
+func drawLiveGameLastPlayPanel(c PixelCanvas, game ScoreboardLiveGame, xOffset int, titleCol, accentCol color.RGBA) {
+	drawText5x8CenteredAtOffset(c, xOffset, 29, "LAST PLAY", titleCol)
+
+	notation := strings.TrimSpace(game.LastPlayNotation)
+	if notation == "" {
+		lines := liveGameLastPlayLines(game)
+		for i, line := range lines {
+			drawText5x8CenteredAtOffset(c, xOffset, 38+i*9, line, accentCol)
+		}
+		return
+	}
+
+	panelH := 64
+	startY := 39
+	endY := panelH - 2
+	diamondSize := endY - startY
+	if diamondSize > panelH {
+		diamondSize = panelH
+	}
+	if diamondSize <= 0 {
+		return
+	}
+
+	drawScorebookDiamondCentered(c, xOffset, startY, diamondSize, accentCol)
+	textY := startY + diamondSize/2 - 4
+	drawText5x8CenteredAtOffset(c, xOffset, textY, notation, accentCol)
 }
 
 func drawLiveGameStatRow(c PixelCanvas, xOffset, y int, label, awayVal, homeVal string, labelCol, awayCol, homeCol color.RGBA) {
