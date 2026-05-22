@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 	"strings"
 	"time"
 )
@@ -33,6 +34,8 @@ var nextMatchupHoldDuration = 2500 * time.Millisecond
 var nextMatchupSlideDuration = 500 * time.Millisecond
 var lastMatchupHoldDuration = 2500 * time.Millisecond
 var lastMatchupSlideDuration = 500 * time.Millisecond
+var liveGameHoldDuration = 2200 * time.Millisecond
+var liveGameSlideDuration = 400 * time.Millisecond
 
 type divisionStandingsPalette struct {
 	background color.RGBA
@@ -73,6 +76,17 @@ func SetLastMatchupTiming(holdMS, slideMS int) {
 	}
 	lastMatchupHoldDuration = time.Duration(holdMS) * time.Millisecond
 	lastMatchupSlideDuration = time.Duration(slideMS) * time.Millisecond
+}
+
+func SetLiveGameTiming(holdMS, slideMS int) {
+	if holdMS <= 0 {
+		holdMS = 2200
+	}
+	if slideMS <= 0 {
+		slideMS = 400
+	}
+	liveGameHoldDuration = time.Duration(holdMS) * time.Millisecond
+	liveGameSlideDuration = time.Duration(slideMS) * time.Millisecond
 }
 
 func divisionStandingsColors() divisionStandingsPalette {
@@ -598,6 +612,30 @@ func drawText5x8CenteredInRangeAtOffset(c PixelCanvas, xStart, regionW, xOffset,
 	DrawText5x8(c, x, y, text, col)
 }
 
+func drawText5x8CenteredSegmentsInRangeAtOffset(c PixelCanvas, xStart, regionW, xOffset, y int, segments []text5x8Segment) {
+	totalWidth := measureText5x8SegmentsWidth(segments)
+	x := xOffset + xStart + (regionW-totalWidth)/2
+	if x < xOffset+xStart {
+		x = xOffset + xStart
+	}
+
+	type segmentRune struct {
+		ch  rune
+		col color.RGBA
+	}
+
+	var runes []segmentRune
+	for _, segment := range segments {
+		for _, ch := range []rune(segment.text) {
+			runes = append(runes, segmentRune{ch: ch, col: segment.col})
+		}
+	}
+	for i, r := range runes {
+		DrawText5x8(c, x, y, string(r.ch), r.col)
+		x += advance5x8(r.ch, i == len(runes)-1)
+	}
+}
+
 type text5x8Segment struct {
 	text string
 	col  color.RGBA
@@ -658,14 +696,19 @@ func chooseStringValue(primary, fallback string) string {
 func drawOutCircle(c PixelCanvas, x, y int, filled bool, outlineCol, fillCol color.RGBA) {
 	outline := []string{
 		"  ###  ",
-		" #   # ",
+		" ## ## ",
 		"#     #",
-		" #   # ",
+		"#     #",
+		"#     #",
+		" ## ## ",
 		"  ###  ",
 	}
 	filledPat := []string{
 		"  ###  ",
 		" ##### ",
+		"#######",
+		"#######",
+		"#######",
 		"#######",
 		" ##### ",
 		"  ###  ",
@@ -853,145 +896,275 @@ func pitcherHandLabel(p ScoreboardPitcher) string {
 }
 
 func DrawLiveGameScore(c PixelCanvas, game ScoreboardLiveGame) {
+	DrawLiveGameFrame(c, liveGameFrameAt(game, time.Now()))
+}
+
+func DrawLiveGameFrame(c PixelCanvas, frame ScoreboardLiveGameFrame) {
 	bounds := c.Bounds()
 	width := bounds.Max.X
 	height := bounds.Max.Y
 
-	// Clear canvas
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			c.Set(x, y, color.RGBA{R: 0, G: 0, B: 0, A: 255})
 		}
 	}
 
+	drawLiveGameStaticTop(c, frame.Game)
+	drawLiveGameBottomPanel(c, frame.Game, frame.PanelIndex, -frame.SlideOffset)
+	if frame.NextPanelIndex >= 0 {
+		drawLiveGameBottomPanel(c, frame.Game, frame.NextPanelIndex, width-frame.SlideOffset)
+	}
+}
+
+func liveGameFrameAt(game ScoreboardLiveGame, now time.Time) ScoreboardLiveGameFrame {
+	panelCount := liveGamePanelCount()
+	if panelCount == 0 {
+		return ScoreboardLiveGameFrame{Game: game, PanelIndex: 0, NextPanelIndex: -1}
+	}
+
+	phaseDuration := liveGameHoldDuration + liveGameSlideDuration
+	if phaseDuration <= 0 {
+		return ScoreboardLiveGameFrame{Game: game, PanelIndex: 0, NextPanelIndex: -1}
+	}
+
+	elapsed := time.Duration(now.UnixNano())
+	if elapsed < 0 {
+		elapsed = -elapsed
+	}
+	cycleDuration := time.Duration(panelCount) * phaseDuration
+	if cycleDuration <= 0 {
+		return ScoreboardLiveGameFrame{Game: game, PanelIndex: 0, NextPanelIndex: -1}
+	}
+	elapsed %= cycleDuration
+
+	panelIndex := int(elapsed / phaseDuration)
+	phaseOffset := elapsed % phaseDuration
+	if phaseOffset < liveGameHoldDuration {
+		return ScoreboardLiveGameFrame{Game: game, PanelIndex: panelIndex, NextPanelIndex: -1}
+	}
+
+	nextPanelIndex := (panelIndex + 1) % panelCount
+	return ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     panelIndex,
+		NextPanelIndex: nextPanelIndex,
+		SlideOffset:    liveGameSlideOffset(phaseOffset-liveGameHoldDuration, liveGameSlideDuration, 64),
+	}
+}
+
+func liveGameSlideOffset(progress, duration time.Duration, distance int) int {
+	if distance <= 0 {
+		return 0
+	}
+	if duration <= 0 || progress >= duration {
+		return distance
+	}
+	if progress <= 0 {
+		return 0
+	}
+	ratio := float64(progress) / float64(duration)
+	eased := 0.5 - 0.5*math.Cos(ratio*math.Pi)
+	offset := int(math.Round(eased * float64(distance)))
+	if offset < 0 {
+		return 0
+	}
+	if offset > distance {
+		return distance
+	}
+	return offset
+}
+
+func liveGamePanelCount() int {
+	return 4
+}
+
+func drawLiveGameStaticTop(c PixelCanvas, game ScoreboardLiveGame) {
 	awayColor := GetTeamColor(game.AwayTeam.Name)
 	homeColor := GetTeamColor(game.HomeTeam.Name)
 	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
 	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
-	dimName := color.RGBA{R: 165, G: 165, B: 165, A: 255}
-	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
-
-	// ===== COMPACT R/H/E/L GRID =====
 	awayAbbr := teamAbbrev(game.AwayTeam.ShortName, game.AwayTeam.Name)
 	homeAbbr := teamAbbrev(game.HomeTeam.ShortName, game.HomeTeam.Name)
-	gridX := 1
-	gridY := 1
-	gridW := width - 2
-	gridH := 17
-	if gridW < 8 || height < gridH+1 {
+	drawText5x8CenteredSegmentsAtOffset(c, 0, 1, []text5x8Segment{
+		{text: awayAbbr, col: awayColor},
+		{text: " @ ", col: white},
+		{text: homeAbbr, col: homeColor},
+	})
+	drawText5x8CenteredSegmentsInRangeAtOffset(c, -3, 48, 0, 10, []text5x8Segment{
+		{text: fmt.Sprintf("%d", game.AwayTeam.Runs), col: awayColor},
+		{text: " - ", col: white},
+		{text: fmt.Sprintf("%d", game.HomeTeam.Runs), col: homeColor},
+	})
+	DrawBases(c, 50, 16, &game.Bases)
+	drawLiveGameStatusRow(c, 19, game, grey, white)
+}
+
+func drawLiveGameBottomPanel(c PixelCanvas, game ScoreboardLiveGame, panelIndex int, xOffset int) {
+	if panelIndex < 0 || panelIndex >= liveGamePanelCount() {
 		return
 	}
 
-	// Border and separators.
-	for dx := 0; dx < gridW; dx++ {
-		c.Set(gridX+dx, gridY, grey)
-		c.Set(gridX+dx, gridY+gridH-1, grey)
-	}
-	for dy := 0; dy < gridH; dy++ {
-		c.Set(gridX, gridY+dy, grey)
-		c.Set(gridX+gridW-1, gridY+dy, grey)
-	}
+	awayColor := GetTeamColor(game.AwayTeam.Name)
+	homeColor := GetTeamColor(game.HomeTeam.Name)
+	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
+	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
 
-	colWidths := []int{14, 12, 12, 12, 12}
-	colX := gridX + 1
-	for i := 0; i < len(colWidths)-1; i++ {
-		colX += colWidths[i]
-		for dy := 1; dy < gridH-1; dy++ {
-			c.Set(colX, gridY+dy, grey)
+	switch panelIndex {
+	case 0:
+		drawLiveGameStatRow(c, xOffset, 29, "R", fmt.Sprintf("%d", game.AwayTeam.Runs), fmt.Sprintf("%d", game.HomeTeam.Runs), grey, awayColor, homeColor)
+		drawLiveGameStatRow(c, xOffset, 38, "H", fmt.Sprintf("%d", game.AwayTeam.Hits), fmt.Sprintf("%d", game.HomeTeam.Hits), grey, awayColor, homeColor)
+		drawLiveGameStatRow(c, xOffset, 47, "E", fmt.Sprintf("%d", game.AwayTeam.Errors), fmt.Sprintf("%d", game.HomeTeam.Errors), grey, awayColor, homeColor)
+		drawLiveGameStatRow(c, xOffset, 56, "L", fmt.Sprintf("%d", game.AwayTeam.LOB), fmt.Sprintf("%d", game.HomeTeam.LOB), grey, awayColor, homeColor)
+	case 1:
+		drawText5x8CenteredAtOffset(c, xOffset, 29, liveGameBatterName(game), liveGameBatterColor(game))
+		drawText5x8CenteredAtOffset(c, xOffset, 38, liveGameBatterPrimaryLine(game), grey)
+		drawText5x8CenteredAtOffset(c, xOffset, 47, liveGameBatterSecondaryLine(game), grey)
+		drawText5x8CenteredAtOffset(c, xOffset, 56, liveGameBatterSummaryLine(game), white)
+	case 2:
+		drawText5x8CenteredAtOffset(c, xOffset, 29, liveGamePitcherName(game), liveGamePitcherColor(game))
+		drawText5x8CenteredAtOffset(c, xOffset, 38, liveGamePitcherPrimaryLine(game), grey)
+		drawText5x8CenteredAtOffset(c, xOffset, 47, liveGamePitcherSecondaryLine(game), grey)
+		drawText5x8CenteredAtOffset(c, xOffset, 56, liveGamePitcherTertiaryLine(game), white)
+	case 3:
+		drawText5x8CenteredAtOffset(c, xOffset, 29, "LAST PLAY", grey)
+		lines := liveGameLastPlayLines(game)
+		for i, line := range lines {
+			drawText5x8CenteredAtOffset(c, xOffset, 38+i*9, line, orange)
 		}
 	}
-	h1 := gridY + 5
-	h2 := gridY + 10
-	for dx := 1; dx < gridW-1; dx++ {
-		c.Set(gridX+dx, h1, grey)
-		c.Set(gridX+dx, h2, grey)
-	}
+}
 
-	// Header row: each stat letter centered in its own cell.
-	statLabels := []string{"", "R", "H", "E", "L"}
-	cellX := gridX + 1
-	for i, label := range statLabels {
-		drawText3x4CenteredInRange(c, cellX, colWidths[i], gridY+1, label, grey)
-		cellX += colWidths[i]
-	}
+func drawLiveGameStatRow(c PixelCanvas, xOffset, y int, label, awayVal, homeVal string, labelCol, awayCol, homeCol color.RGBA) {
+	drawText5x8CenteredInRangeAtOffset(c, 0, 16, xOffset, y, label, labelCol)
+	drawText5x8CenteredInRangeAtOffset(c, 16, 20, xOffset, y, awayVal, awayCol)
+	drawText5x8CenteredInRangeAtOffset(c, 44, 20, xOffset, y, homeVal, homeCol)
+}
 
-	awayVals := []string{awayAbbr, fmt.Sprintf("%d", game.AwayTeam.Runs), fmt.Sprintf("%d", game.AwayTeam.Hits), fmt.Sprintf("%d", game.AwayTeam.Errors), fmt.Sprintf("%d", game.AwayTeam.LOB)}
-	homeVals := []string{homeAbbr, fmt.Sprintf("%d", game.HomeTeam.Runs), fmt.Sprintf("%d", game.HomeTeam.Hits), fmt.Sprintf("%d", game.HomeTeam.Errors), fmt.Sprintf("%d", game.HomeTeam.LOB)}
-	cellY := gridY + 6
-	cellX = gridX + 1
-	for i, val := range awayVals {
-		drawText3x4CenteredInRange(c, cellX, colWidths[i], cellY, val, awayColor)
-		cellX += colWidths[i]
+func liveGameStatusLine(game ScoreboardLiveGame) string {
+	half := strings.ToUpper(strings.TrimSpace(game.HalfInning))
+	switch half {
+	case "TOP":
+		half = "T"
+	case "BOTTOM":
+		half = "B"
+	case "MID":
+		half = "M"
+	case "END":
+		half = "E"
+	default:
+		half = trimToChars(half, 1)
 	}
-	cellY = gridY + 11
-	cellX = gridX + 1
-	for i, val := range homeVals {
-		drawText3x4CenteredInRange(c, cellX, colWidths[i], cellY, val, homeColor)
-		cellX += colWidths[i]
-	}
+	line := fmt.Sprintf("%s%d %d-%d", half, game.Inning, game.Balls, game.Strikes)
+	return trimText5x8ToWidth(line, 62)
+}
 
-	// Inning line below the grid.
-	inningLabel := fmt.Sprintf(game.HalfInning+" %d", game.Inning)
-	drawInningOutsCentered(c, 1, width-2, gridY+gridH+2, inningLabel, game.Outs, grey, white, grey)
-
-	// Pitcher and batter below the inning line, placed by team side.
-	half := strings.ToLower(strings.TrimSpace(game.HalfInning))
-	pitcherLeft := half == "bottom" || half == "end"
-	leftX := 1
-	rightX := width / 2
-	halfW := width / 2
-	if halfW > 0 {
-		halfW--
+func drawLiveGameStatusRow(c PixelCanvas, y int, game ScoreboardLiveGame, textCol, outFillCol color.RGBA) {
+	status := liveGameStatusLine(game)
+	textW := measureText5x8Width(status)
+	circleW := 7
+	circleGap := 2
+	textGap := 3
+	totalW := textW + textGap + circleW*3 + circleGap*2
+	x := (c.Bounds().Max.X - totalW) / 2
+	if x < 0 {
+		x = 0
 	}
-
-	pitcherName := "TBD"
-	if game.CurrentPitcher.FullName != "" {
-		pitcherName = compactLivePlayerName(game.CurrentPitcher.FullName, game.CurrentPitcher.LastName, 10)
+	DrawText5x8(c, x, y, status, textCol)
+	circleX := x + textW + textGap
+	for i := 0; i < 3; i++ {
+		drawOutCircle(c, circleX+i*(circleW+circleGap), y+1, i < game.Outs, textCol, outFillCol)
 	}
-	pitcherDetail := strings.TrimSpace(fmt.Sprintf("%s%s", pitcherHandLabel(game.CurrentPitcher), trimToChars(game.CurrentPitcher.ERA, 5)))
-	if pitcherDetail == "" {
-		pitcherDetail = "TBD"
-	}
+}
 
-	batterName := "TBD"
-	if game.CurrentBatter.FullName != "" {
-		batterName = compactLivePlayerName(game.CurrentBatter.FullName, game.CurrentBatter.LastName, 10)
-	}
-	batterDetail := strings.TrimSpace(fmt.Sprintf("%s%s", trimToChars(game.CurrentBatter.CurrentPosition, 2), trimToChars(game.CurrentBatter.SeasonBattingAverage, 5)))
-	if batterDetail == "" {
-		batterDetail = "TBD"
-	}
+func liveGameBatterName(game ScoreboardLiveGame) string {
+	return trimText5x8ToWidth(strings.ToUpper(compactLivePlayerName(game.CurrentBatter.FullName, game.CurrentBatter.LastName, 12)), 62)
+}
 
-	playerY1 := gridY + gridH + 8
-	playerY2 := playerY1 + 6
-	if pitcherLeft {
-		drawText3x5CenteredInRange(c, leftX, halfW, playerY1, pitcherName, dimName)
-		drawText3x5CenteredInRange(c, leftX, halfW, playerY2, pitcherDetail, grey)
-		drawText3x5CenteredInRange(c, rightX, halfW, playerY1, batterName, dimName)
-		drawText3x5CenteredInRange(c, rightX, halfW, playerY2, batterDetail, grey)
-	} else {
-		drawText3x5CenteredInRange(c, leftX, halfW, playerY1, batterName, dimName)
-		drawText3x5CenteredInRange(c, leftX, halfW, playerY2, batterDetail, grey)
-		drawText3x5CenteredInRange(c, rightX, halfW, playerY1, pitcherName, dimName)
-		drawText3x5CenteredInRange(c, rightX, halfW, playerY2, pitcherDetail, grey)
+func liveGameBatterColor(game ScoreboardLiveGame) color.RGBA {
+	if strings.EqualFold(strings.TrimSpace(game.HalfInning), "bottom") {
+		return GetTeamColor(game.HomeTeam.Name)
 	}
+	return GetTeamColor(game.AwayTeam.Name)
+}
 
-	drawBallsStrikesCountCentered(c, playerY2+6, game.Balls, game.Strikes, grey, grey, color.RGBA{R: 100, G: 200, B: 100, A: 255}, grey, color.RGBA{R: 255, G: 150, B: 50, A: 255})
-
-	drawBasesY := playerY2 + 20
-	if drawBasesY+7 < height {
-		DrawBases(c, width/2, drawBasesY, &game.Bases)
+func liveGameBatterPrimaryLine(game ScoreboardLiveGame) string {
+	pos := strings.ToUpper(strings.TrimSpace(game.CurrentBatter.CurrentPosition))
+	avg := strings.TrimSpace(game.CurrentBatter.SeasonBattingAverage)
+	if pos == "" && avg == "" {
+		return "AT BAT"
 	}
+	line := strings.TrimSpace(strings.Join([]string{pos, "AVG", avg}, " "))
+	return trimText5x8ToWidth(strings.ToUpper(line), 62)
+}
 
-	lastPlayText := strings.TrimSpace(game.LastPlayNotation)
-	if lastPlayText != "" {
-		lastPlayText = "Prev: " + lastPlayText
-		lastPlayY := drawBasesY + 3
-		if lastPlayY+4 < height {
-			drawText3x5CenteredInRange(c, 1, width-2, lastPlayY, trimToChars(lastPlayText, 14), orange)
-		}
+func liveGameBatterSecondaryLine(game ScoreboardLiveGame) string {
+	ops := strings.TrimSpace(game.CurrentBatter.SeasonOPS)
+	if ops == "" {
+		return "OPS TBD"
 	}
+	return trimText5x8ToWidth(strings.ToUpper("OPS "+ops), 62)
+}
 
+func liveGameBatterSummaryLine(game ScoreboardLiveGame) string {
+	summary := strings.TrimSpace(game.CurrentBatter.Summary)
+	if summary == "" && game.CurrentBatter.GameAtBats > 0 {
+		summary = fmt.Sprintf("%d-%d", game.CurrentBatter.GameHits, game.CurrentBatter.GameAtBats)
+	}
+	if summary == "" {
+		summary = "TBD"
+	}
+	return trimText5x8ToWidth(strings.ToUpper(summary), 62)
+}
+
+func liveGamePitcherName(game ScoreboardLiveGame) string {
+	return trimText5x8ToWidth(strings.ToUpper(compactLivePlayerName(game.CurrentPitcher.FullName, game.CurrentPitcher.LastName, 12)), 62)
+}
+
+func liveGamePitcherColor(game ScoreboardLiveGame) color.RGBA {
+	if strings.EqualFold(strings.TrimSpace(game.HalfInning), "bottom") {
+		return GetTeamColor(game.AwayTeam.Name)
+	}
+	return GetTeamColor(game.HomeTeam.Name)
+}
+
+func liveGamePitcherPrimaryLine(game ScoreboardLiveGame) string {
+	hand := pitcherHandLabel(game.CurrentPitcher)
+	if hand == "" {
+		return "PITCHER"
+	}
+	return trimText5x8ToWidth(strings.ToUpper(hand), 62)
+}
+
+func liveGamePitcherSecondaryLine(game ScoreboardLiveGame) string {
+	era := strings.TrimSpace(game.CurrentPitcher.ERA)
+	if era == "" {
+		return "ERA TBD"
+	}
+	return trimText5x8ToWidth(strings.ToUpper("ERA "+era), 62)
+}
+
+func liveGamePitcherTertiaryLine(game ScoreboardLiveGame) string {
+	return trimText5x8ToWidth(strings.ToUpper(fmt.Sprintf("W-L %d-%d", game.CurrentPitcher.Wins, game.CurrentPitcher.Losses)), 62)
+}
+
+func liveGameLastPlayLines(game ScoreboardLiveGame) []string {
+	text := strings.TrimSpace(game.LastPlayNotation)
+	if text == "" {
+		text = strings.TrimSpace(game.LastPlay)
+	}
+	if text == "" {
+		text = "NO LAST PLAY"
+	}
+	lines := wrapTextLines(strings.ToUpper(text), 10, 3)
+	for i := range lines {
+		lines[i] = trimText5x8ToWidth(lines[i], 62)
+	}
+	for len(lines) < 3 {
+		lines = append(lines, "")
+	}
+	return lines[:3]
 }
 
 // DrawLargeScore draws a two-digit score in a larger format

@@ -33,13 +33,20 @@ sudo -E go run -tags pi .
 
 Startup settings are read from `mlb_scoreboard.json` in the repo root by default. You can point at another file with `-config`, and any explicitly passed flags still override the config file.
 
-The config can also control page-specific behavior, including next and last matchup timing:
+The config can also control hardware and page-specific behavior, including matrix brightness plus live game, next matchup, and last matchup timing:
 
 ```json
 {
   "division_standings": {
     "monochrome": true,
     "green_background": true
+  },
+  "hardware": {
+    "brightness": 100
+  },
+  "live_game": {
+    "hold_ms": 2200,
+    "slide_ms": 400
   },
   "next_matchup": {
     "hold_ms": 2500,

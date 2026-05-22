@@ -49,6 +49,7 @@ func main() {
 
 	scoreboard.SetDivisionStandingsMonochrome(monochrome)
 	scoreboard.SetDivisionStandingsGreenBackground(greenBackground)
+	scoreboard.SetLiveGameTiming(cfg.LiveGame.HoldMS, cfg.LiveGame.SlideMS)
 	scoreboard.SetNextMatchupTiming(cfg.NextMatchup.HoldMS, cfg.NextMatchup.SlideMS)
 	scoreboard.SetLastMatchupTiming(cfg.LastMatchup.HoldMS, cfg.LastMatchup.SlideMS)
 
@@ -60,7 +61,7 @@ func main() {
 	config.Rows = 64
 	config.Cols = 64
 	config.HardwareMapping = "adafruit-hat"
-	config.Brightness = 100
+	config.Brightness = cfg.Hardware.Brightness
 
 	fmt.Printf("Config: Rows=%d, Cols=%d, Mapping=%s, DisableHardwarePulsing=%v\n",
 		config.Rows, config.Cols, config.HardwareMapping, config.DisableHardwarePulsing)
