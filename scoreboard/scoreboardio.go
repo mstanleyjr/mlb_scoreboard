@@ -120,6 +120,7 @@ type ScoreboardLiveGameFrame struct {
 	PanelIndex     int
 	NextPanelIndex int
 	SlideOffset    int
+	GSBlinkOn      bool
 }
 
 type ScoreboardLiveGameTeam struct {
@@ -422,7 +423,11 @@ func scorekeepingLastPlayNotation(play *statsapi.BaseballPlayRestObject) string 
 	case statsapi.EventTypeStrikeout, statsapi.EventTypeStrikeoutDoublePlay, statsapi.EventTypeStrikeoutTriplePlay:
 		notation = "K"
 	case statsapi.EventTypeHomeRun:
-		notation = "HR"
+		if isGrandSlamResult(result) {
+			notation = "GS"
+		} else {
+			notation = "HR"
+		}
 	case statsapi.EventTypeGroundedIntoDoublePlay, statsapi.EventTypeDoublePlay:
 		if fielding := scorekeepingFieldingNotation(play, "GDP"); fielding != "" {
 			notation = fielding
@@ -457,7 +462,11 @@ func scorekeepingLastPlayNotation(play *statsapi.BaseballPlayRestObject) string 
 	case strings.Contains(event, "strikeout"):
 		notation = "K"
 	case strings.Contains(event, "home run"):
-		notation = "HR"
+		if isGrandSlamResult(result) {
+			notation = "GS"
+		} else {
+			notation = "HR"
+		}
 	case strings.Contains(event, "double play"):
 		if fielding := scorekeepingFieldingNotation(play, "GDP"); fielding != "" {
 			notation = fielding
@@ -532,6 +541,24 @@ func scorekeepingLastPlayNotation(play *statsapi.BaseballPlayRestObject) string 
 
 	// No concise notation recognized; treat as prose/description
 	return ""
+}
+
+func isGrandSlamResult(result *statsapi.Result) bool {
+	if result == nil {
+		return false
+	}
+	if result.Rbi != nil && *result.Rbi >= 4 {
+		return true
+	}
+	event := ""
+	if result.Event != nil {
+		event = strings.ToLower(strings.TrimSpace(*result.Event))
+	}
+	description := ""
+	if result.Description != nil {
+		description = strings.ToLower(strings.TrimSpace(*result.Description))
+	}
+	return strings.Contains(event, "grand slam") || strings.Contains(description, "grand slam")
 }
 
 func scorekeepingFieldingNotation(play *statsapi.BaseballPlayRestObject, prefix string) string {

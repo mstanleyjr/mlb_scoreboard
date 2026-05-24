@@ -46,6 +46,18 @@ func TestScorekeepingLastPlayNotation(t *testing.T) {
 			want: "HR, 2 RBI",
 		},
 		{
+			name: "grand slam becomes gs notation",
+			play: &statsapi.BaseballPlayRestObject{
+				Result: &statsapi.Result{
+					EventType:   ptr(string(statsapi.EventTypeHomeRun)),
+					Event:       ptr("Home Run"),
+					Description: ptr("Batter hits a grand slam."),
+					Rbi:         int32Ptr(4),
+				},
+			},
+			want: "GS, 4 RBI",
+		},
+		{
 			name: "direct enum strikeout",
 			play: &statsapi.BaseballPlayRestObject{
 				Result: &statsapi.Result{
