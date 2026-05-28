@@ -31,6 +31,9 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 		"live_game": {
 			"hold_ms": 1800
 		},
+		"live_look_in": {
+			"repeats": 3
+		},
 		"next_matchup": {
 			"hold_ms": 3000
 		},
@@ -57,6 +60,9 @@ func TestLoadConfigMergesWithDefaults(t *testing.T) {
 	}
 	if cfg.LiveGame.HoldMS != 1800 || cfg.LiveGame.SlideMS != 400 {
 		t.Fatalf("expected live game config to merge with defaults, got %+v", cfg.LiveGame)
+	}
+	if cfg.LiveLookIn.Repeats != 3 {
+		t.Fatalf("expected live look-in repeats 3, got %+v", cfg.LiveLookIn)
 	}
 	if cfg.NextMatchup.HoldMS != 3000 || cfg.NextMatchup.SlideMS != 500 {
 		t.Fatalf("expected next matchup config to merge with defaults, got %+v", cfg.NextMatchup)

@@ -36,6 +36,7 @@ var lastMatchupHoldDuration = 2500 * time.Millisecond
 var lastMatchupSlideDuration = 500 * time.Millisecond
 var liveGameHoldDuration = 2200 * time.Millisecond
 var liveGameSlideDuration = 400 * time.Millisecond
+var liveLookInRepeats = 1
 
 type divisionStandingsPalette struct {
 	background color.RGBA
@@ -87,6 +88,13 @@ func SetLiveGameTiming(holdMS, slideMS int) {
 	}
 	liveGameHoldDuration = time.Duration(holdMS) * time.Millisecond
 	liveGameSlideDuration = time.Duration(slideMS) * time.Millisecond
+}
+
+func SetLiveLookInRepeats(repeats int) {
+	if repeats < 0 {
+		repeats = 1
+	}
+	liveLookInRepeats = repeats
 }
 
 func divisionStandingsColors() divisionStandingsPalette {
@@ -911,10 +919,20 @@ func DrawLiveGameFrame(c PixelCanvas, frame ScoreboardLiveGameFrame) {
 	}
 
 	drawLiveGameStaticTop(c, frame.Game)
-	drawLiveGameBottomPanel(c, frame.Game, frame.PanelIndex, -frame.SlideOffset)
-	if frame.NextPanelIndex >= 0 {
-		drawLiveGameBottomPanel(c, frame.Game, frame.NextPanelIndex, width-frame.SlideOffset)
+	if frame.NextPanelIndex < 0 {
+		drawLiveGameBottomPanelFrame(c, frame, frame.PanelIndex, 0)
+	} else {
+		drawLiveGameBottomPanelFrame(c, frame, frame.PanelIndex, -frame.SlideOffset)
+		drawLiveGameBottomPanelFrame(c, frame, frame.NextPanelIndex, width-frame.SlideOffset)
 	}
+}
+
+func drawLiveGameBottomPanelFrame(c PixelCanvas, frame ScoreboardLiveGameFrame, panelIndex int, xOffset int) {
+	if panelIndex == 3 {
+		drawLiveGameLastPlayPanelBuffered(c, frame, xOffset)
+		return
+	}
+	drawLiveGameBottomPanel(c, frame.Game, panelIndex, xOffset)
 }
 
 func liveGameFrameAt(game ScoreboardLiveGame, now time.Time) ScoreboardLiveGameFrame {
@@ -941,7 +959,7 @@ func liveGameFrameAt(game ScoreboardLiveGame, now time.Time) ScoreboardLiveGameF
 	panelIndex := int(elapsed / phaseDuration)
 	phaseOffset := elapsed % phaseDuration
 	if phaseOffset < liveGameHoldDuration {
-		return ScoreboardLiveGameFrame{Game: game, PanelIndex: panelIndex, NextPanelIndex: -1}
+		return ScoreboardLiveGameFrame{Game: game, PanelIndex: panelIndex, NextPanelIndex: -1, GSBlinkOn: grandSlamBlinkOn(now)}
 	}
 
 	nextPanelIndex := (panelIndex + 1) % panelCount
@@ -950,7 +968,21 @@ func liveGameFrameAt(game ScoreboardLiveGame, now time.Time) ScoreboardLiveGameF
 		PanelIndex:     panelIndex,
 		NextPanelIndex: nextPanelIndex,
 		SlideOffset:    liveGameSlideOffset(phaseOffset-liveGameHoldDuration, liveGameSlideDuration, 64),
+		GSBlinkOn:      grandSlamBlinkOn(now),
 	}
+}
+
+const grandSlamBlinkPeriod = 1600 * time.Millisecond
+
+func grandSlamBlinkOn(now time.Time) bool {
+	if grandSlamBlinkPeriod <= 0 {
+		return true
+	}
+	elapsed := now.UnixNano()
+	if elapsed < 0 {
+		elapsed = -elapsed
+	}
+	return time.Duration(elapsed)%grandSlamBlinkPeriod < grandSlamBlinkPeriod/2
 }
 
 func liveGameSlideOffset(progress, duration time.Duration, distance int) int {
@@ -1028,12 +1060,384 @@ func drawLiveGameBottomPanel(c PixelCanvas, game ScoreboardLiveGame, panelIndex 
 		drawText5x8CenteredAtOffset(c, xOffset, 47, liveGamePitcherSecondaryLine(game), grey)
 		drawText5x8CenteredAtOffset(c, xOffset, 56, liveGamePitcherTertiaryLine(game), white)
 	case 3:
-		drawText5x8CenteredAtOffset(c, xOffset, 29, "LAST PLAY", grey)
+		drawLiveGameLastPlayPanel(c, game, xOffset, orange, false)
+	}
+}
+
+func drawLiveGameLastPlayPanel(c PixelCanvas, game ScoreboardLiveGame, xOffset int, accentCol color.RGBA, gsBlinkOn bool) {
+	notation := lastPlayDisplayNotation(game)
+	if notation == "" {
 		lines := liveGameLastPlayLines(game)
 		for i, line := range lines {
-			drawText5x8CenteredAtOffset(c, xOffset, 38+i*9, line, orange)
+			drawText5x8CenteredAtOffset(c, xOffset, 31+i*9, line, accentCol)
+		}
+		return
+	}
+
+	panelH := 64
+	startY := 29
+	endY := panelH - 2
+	diamondSize := endY - startY
+	if diamondSize > panelH {
+		diamondSize = panelH
+	}
+	if diamondSize <= 0 {
+		return
+	}
+
+	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
+	diamondCol := lastPlayDiamondColor(game, accentCol)
+	switch {
+	case isGrandSlamGame(game):
+		if gsBlinkOn {
+			drawScorebookDiamondFilledCentered(c, xOffset, startY, diamondSize, diamondCol)
+		} else {
+			drawScorebookDiamondCentered(c, xOffset, startY, diamondSize, diamondCol)
+		}
+	case isHomeRunNotation(notation):
+		drawScorebookDiamondFilledCentered(c, xOffset, startY, diamondSize, diamondCol)
+	default:
+		drawScorebookDiamondCentered(c, xOffset, startY, diamondSize, diamondCol)
+	}
+	drawLastPlayAdvancementPath(c, xOffset, startY, diamondSize, notation, white)
+	drawLastPlayRBIDots(c, xOffset, game.LastPlayRBIs, accentCol)
+
+	textY := startY + diamondSize/2 - 4
+	notationCol := accentCol
+	if isGrandSlamGame(game) && gsBlinkOn {
+		notationCol = color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	} else if isHomeRunNotation(notation) {
+		notationCol = color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	}
+	drawLastPlayNotationCenteredAtOffset(c, xOffset, textY, game, notationCol)
+}
+
+func drawLiveGameLastPlayPanelBuffered(c PixelCanvas, frame ScoreboardLiveGameFrame, xOffset int) {
+	panel := NewMockCanvas(64, 64)
+	background := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+
+	for x := 0; x < panel.w; x++ {
+		for y := 0; y < panel.h; y++ {
+			panel.Set(x, y, background)
 		}
 	}
+
+	drawLiveGameLastPlayPanel(panel, frame.Game, 0, orange, frame.GSBlinkOn)
+
+	bounds := c.Bounds()
+	xStart := 0
+	if xOffset < bounds.Min.X {
+		xStart = bounds.Min.X - xOffset
+	}
+	xEnd := panel.w
+	if xOffset+xEnd > bounds.Max.X {
+		xEnd = bounds.Max.X - xOffset
+	}
+	if xStart >= xEnd {
+		return
+	}
+
+	yStart := 29
+	if yStart < bounds.Min.Y {
+		yStart = bounds.Min.Y
+	}
+	yEnd := panel.h
+	if yEnd > bounds.Max.Y {
+		yEnd = bounds.Max.Y
+	}
+	if yStart >= yEnd {
+		return
+	}
+
+	for y := yStart; y < yEnd; y++ {
+		rowOffset := y * panel.w
+		for x := xStart; x < xEnd; x++ {
+			c.Set(xOffset+x, y, panel.pix[rowOffset+x])
+		}
+	}
+}
+
+func drawLastPlayNotationCenteredAtOffset(c PixelCanvas, xOffset, y int, game ScoreboardLiveGame, col color.RGBA) {
+	notation := lastPlayDisplayNotation(game)
+	if isLookingStrikeoutNotation(notation, game.LastPlay) {
+		drawMirroredK5x8CenteredAtOffset(c, xOffset, y, col)
+		return
+	}
+	drawTightText5x8CenteredAtOffset(c, xOffset, y, notation, col)
+}
+
+func lastPlayDisplayNotation(game ScoreboardLiveGame) string {
+	notation := strings.TrimSpace(game.LastPlayNotation)
+	if notation == "" {
+		return ""
+	}
+	if isGrandSlamGame(game) {
+		notation = "GS"
+	}
+	if game.LastPlayRBIs <= 0 {
+		return normalizeLastPlayDisplayNotation(notation)
+	}
+	suffix := fmt.Sprintf(", %d RBI", game.LastPlayRBIs)
+	return normalizeLastPlayDisplayNotation(strings.TrimSuffix(notation, suffix))
+}
+
+func normalizeLastPlayDisplayNotation(notation string) string {
+	notation = strings.TrimSpace(notation)
+	if notation == "" {
+		return ""
+	}
+	if measureTightText5x8Width(notation) <= 25 {
+		return notation
+	}
+	return strings.ReplaceAll(notation, "-", "")
+}
+
+func isHomeRunNotation(notation string) bool {
+	return strings.EqualFold(strings.TrimSpace(notation), "HR")
+}
+
+func isGrandSlamNotation(notation string) bool {
+	return strings.EqualFold(strings.TrimSpace(notation), "GS")
+}
+
+func isGrandSlamGame(game ScoreboardLiveGame) bool {
+	notation := strings.TrimSpace(game.LastPlayNotation)
+	if isGrandSlamNotation(notation) {
+		return true
+	}
+	if isHomeRunNotation(notation) && game.LastPlayRBIs >= 4 {
+		return true
+	}
+	return strings.Contains(strings.ToLower(strings.TrimSpace(game.LastPlay)), "grand slam")
+}
+
+func lastPlayDiamondColor(game ScoreboardLiveGame, accentCol color.RGBA) color.RGBA {
+	if !isLongLastPlayNotation(game) {
+		return accentCol
+	}
+	return color.RGBA{
+		R: uint8(int(accentCol.R) * 7 / 10),
+		G: uint8(int(accentCol.G) * 7 / 10),
+		B: uint8(int(accentCol.B) * 7 / 10),
+		A: accentCol.A,
+	}
+}
+
+func isLongLastPlayNotation(game ScoreboardLiveGame) bool {
+	return measureTightText5x8Width(rawLastPlayDisplayNotation(game)) > 25
+}
+
+func rawLastPlayDisplayNotation(game ScoreboardLiveGame) string {
+	notation := strings.TrimSpace(game.LastPlayNotation)
+	if notation == "" {
+		return ""
+	}
+	if game.LastPlayRBIs <= 0 {
+		return notation
+	}
+	suffix := fmt.Sprintf(", %d RBI", game.LastPlayRBIs)
+	return strings.TrimSuffix(notation, suffix)
+}
+
+func isLookingStrikeoutNotation(notation, lastPlay string) bool {
+	return strings.EqualFold(strings.TrimSpace(notation), "K") &&
+		strings.Contains(strings.ToLower(lastPlay), "looking")
+}
+
+func drawMirroredK5x8CenteredAtOffset(c PixelCanvas, xOffset, y int, col color.RGBA) {
+	glyph, ok := font5x8['K']
+	if !ok {
+		drawText5x8CenteredAtOffset(c, xOffset, y, "K", col)
+		return
+	}
+
+	panelWidth := c.Bounds().Max.X
+	x := xOffset + (panelWidth-fontW5x8)/2
+	if x < xOffset {
+		x = xOffset
+	}
+
+	for row := 0; row < fontH5x8; row++ {
+		mirrored := mirror5BitRow(glyph[row])
+		for colIdx := 0; colIdx < fontW5x8; colIdx++ {
+			if mirrored&(1<<uint(fontW5x8-1-colIdx)) != 0 {
+				c.Set(x+colIdx, y+row, col)
+			}
+		}
+	}
+}
+
+func drawTightText5x8CenteredAtOffset(c PixelCanvas, xOffset, y int, text string, col color.RGBA) {
+	panelWidth := c.Bounds().Max.X
+	x := xOffset + (panelWidth-measureTightText5x8Width(text))/2
+	if x < xOffset {
+		x = xOffset
+	}
+	DrawTightText5x8(c, x, y, text, col)
+}
+
+func DrawTightText5x8(c PixelCanvas, x, y int, text string, col color.RGBA) {
+	bounds := c.Bounds()
+	cx := x
+	runes := []rune(text)
+	for i, ch := range runes {
+		if cx >= bounds.Max.X {
+			break
+		}
+
+		glyph, ok := font5x8[ch]
+		if !ok {
+			glyph = font5x8[' ']
+		}
+
+		for row := 0; row < fontH5x8; row++ {
+			for colIdx := 0; colIdx < fontW5x8; colIdx++ {
+				if glyph[row]&(1<<uint(fontW5x8-1-colIdx)) != 0 {
+					px := cx + colIdx
+					py := y + row
+					if px >= 0 && px < bounds.Max.X && py >= 0 && py < bounds.Max.Y {
+						c.Set(px, py, col)
+					}
+				}
+			}
+		}
+		cx += tightAdvance5x8(ch, i == len(runes)-1)
+	}
+}
+
+func measureTightText5x8Width(text string) int {
+	width := 0
+	runes := []rune(text)
+	for i, ch := range runes {
+		width += tightAdvance5x8(ch, i == len(runes)-1)
+	}
+	return width
+}
+
+func tightAdvance5x8(ch rune, isLast bool) int {
+	if ch == ' ' {
+		if isLast {
+			return 0
+		}
+		return 3
+	}
+	if isLast {
+		return fontW5x8
+	}
+	return fontW5x8
+}
+
+func mirror5BitRow(row byte) byte {
+	var mirrored byte
+	for i := 0; i < fontW5x8; i++ {
+		if row&(1<<uint(i)) != 0 {
+			mirrored |= 1 << uint(fontW5x8-1-i)
+		}
+	}
+	return mirrored
+}
+
+func lastPlayAchievedBases(notation string) (first, second, third, home bool) {
+	switch strings.ToUpper(strings.TrimSpace(notation)) {
+	case "1B", "BB", "HBP":
+		return true, false, false, false
+	case "2B":
+		return true, true, false, false
+	case "3B":
+		return true, true, true, false
+	case "HR", "GS":
+		return true, true, true, true
+	default:
+		return false, false, false, false
+	}
+}
+
+func drawLastPlayAdvancementPath(c PixelCanvas, xOffset, topY, size int, notation string, col color.RGBA) {
+	first, second, third, home := lastPlayAchievedBases(notation)
+	if !first && !second && !third && !home {
+		return
+	}
+
+	panelW := 64
+	x := xOffset + (panelW-size)/2
+	if x < xOffset {
+		x = xOffset
+	}
+	cx, cy := x+size/2, topY+size/2
+	r := size / 2
+
+	if first {
+		drawOffsetDiamondEdge(c, cx, cy, r, "home-first", col)
+	}
+	if second {
+		drawOffsetDiamondEdge(c, cx, cy, r, "first-second", col)
+	}
+	if third {
+		drawOffsetDiamondEdge(c, cx, cy, r, "second-third", col)
+	}
+	if home {
+		drawOffsetDiamondEdge(c, cx, cy, r, "third-home", col)
+	}
+}
+
+func drawOffsetDiamondEdge(c PixelCanvas, cx, cy, r int, edge string, col color.RGBA) {
+	for i := 0; i <= r; i++ {
+		x := cx
+		y := cy
+		switch edge {
+		case "home-first":
+			x = cx + i + 1
+			y = cy + (r - i) + 1
+		case "first-second":
+			x = cx + i + 1
+			y = cy - (r - i) - 1
+		case "second-third":
+			x = cx - i - 1
+			y = cy - (r - i) - 1
+		case "third-home":
+			x = cx - i - 1
+			y = cy + (r - i) + 1
+		default:
+			return
+		}
+		c.Set(x, y, col)
+	}
+}
+
+func drawSmallDiamondOutline(c PixelCanvas, cx, cy, r int, col color.RGBA) {
+	for dy := -r; dy <= r; dy++ {
+		span := r - absInt(dy)
+		if span == 0 {
+			c.Set(cx, cy+dy, col)
+			continue
+		}
+		c.Set(cx-span, cy+dy, col)
+		c.Set(cx+span, cy+dy, col)
+	}
+}
+
+func drawLastPlayRBIDots(c PixelCanvas, xOffset, rbis int, col color.RGBA) {
+	if rbis <= 0 {
+		return
+	}
+	if rbis > 4 {
+		rbis = 4
+	}
+
+	x := xOffset + 56
+	startY := 34
+	gap := 7
+	for i := 0; i < rbis; i++ {
+		drawSmallDiamondOutline(c, x, startY+i*gap, 1, col)
+	}
+}
+
+func absInt(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 func drawLiveGameStatRow(c PixelCanvas, xOffset, y int, label, awayVal, homeVal string, labelCol, awayCol, homeCol color.RGBA) {
@@ -1042,27 +1446,61 @@ func drawLiveGameStatRow(c PixelCanvas, xOffset, y int, label, awayVal, homeVal 
 	drawText5x8CenteredInRangeAtOffset(c, 44, 20, xOffset, y, homeVal, homeCol)
 }
 
-func liveGameStatusLine(game ScoreboardLiveGame) string {
+func liveGameStatusHalf(game ScoreboardLiveGame) string {
 	half := strings.ToUpper(strings.TrimSpace(game.HalfInning))
 	switch half {
 	case "TOP":
-		half = "T"
+		return "T"
 	case "BOTTOM":
-		half = "B"
+		return "B"
 	case "MID":
-		half = "M"
+		return "M"
 	case "END":
-		half = "E"
+		return "E"
 	default:
-		half = trimToChars(half, 1)
+		return trimToChars(half, 1)
 	}
-	line := fmt.Sprintf("%s%d %d-%d", half, game.Inning, game.Balls, game.Strikes)
-	return trimText5x8ToWidth(line, 62)
+}
+
+func liveGameStatusInningText(game ScoreboardLiveGame) string {
+	return fmt.Sprintf("%s%d", liveGameStatusHalf(game), game.Inning)
+}
+
+func measureLiveGameStatusTextWidth(game ScoreboardLiveGame) int {
+	inningText := liveGameStatusInningText(game)
+	ballsText := fmt.Sprintf("%d", game.Balls)
+	strikesText := fmt.Sprintf("%d", game.Strikes)
+	inningGap := 3
+	countDashGap := 0
+	dashW := 3
+	return measureText5x8Width(inningText) + inningGap + measureText5x8Width(ballsText) + countDashGap + dashW + countDashGap + measureText5x8Width(strikesText)
+}
+
+func drawLiveGameStatusText(c PixelCanvas, x, y int, game ScoreboardLiveGame, textCol color.RGBA) int {
+	inningText := liveGameStatusInningText(game)
+	ballsText := fmt.Sprintf("%d", game.Balls)
+	strikesText := fmt.Sprintf("%d", game.Strikes)
+	inningGap := 3
+	countDashGap := 0
+
+	DrawText5x8(c, x, y, inningText, textCol)
+	x += measureText5x8Width(inningText) + inningGap
+	DrawText5x8(c, x, y, ballsText, textCol)
+	x += measureText5x8Width(ballsText) + countDashGap
+	drawCompactStatusDash(c, x, y, textCol)
+	x += 3 + countDashGap
+	DrawText5x8(c, x, y, strikesText, textCol)
+	return x + measureText5x8Width(strikesText)
+}
+
+func drawCompactStatusDash(c PixelCanvas, x, y int, col color.RGBA) {
+	for dx := 0; dx < 3; dx++ {
+		c.Set(x+dx, y+3, col)
+	}
 }
 
 func drawLiveGameStatusRow(c PixelCanvas, y int, game ScoreboardLiveGame, textCol, outFillCol color.RGBA) {
-	status := liveGameStatusLine(game)
-	textW := measureText5x8Width(status)
+	textW := measureLiveGameStatusTextWidth(game)
 	circleW := 7
 	circleGap := 2
 	textGap := 3
@@ -1071,8 +1509,7 @@ func drawLiveGameStatusRow(c PixelCanvas, y int, game ScoreboardLiveGame, textCo
 	if x < 0 {
 		x = 0
 	}
-	DrawText5x8(c, x, y, status, textCol)
-	circleX := x + textW + textGap
+	circleX := drawLiveGameStatusText(c, x, y, game, textCol) + textGap
 	for i := 0; i < 3; i++ {
 		drawOutCircle(c, circleX+i*(circleW+circleGap), y+1, i < game.Outs, textCol, outFillCol)
 	}
@@ -1165,6 +1602,44 @@ func liveGameLastPlayLines(game ScoreboardLiveGame) []string {
 		lines = append(lines, "")
 	}
 	return lines[:3]
+}
+
+// drawScorebookDiamondCentered draws a simple diamond (base) graphic centered
+// in the bottom panel area. xOffset is the panel's horizontal offset; topY is the
+// starting Y coordinate to draw the diamond pattern.
+// drawScorebookDiamondCentered draws a scalable, outline-only diamond (square) centered in the panel.
+func drawScorebookDiamondCentered(c PixelCanvas, xOffset, topY, size int, col color.RGBA) {
+	panelW := 64 // Always center diamond in a single panel, not the whole canvas
+	x := xOffset + (panelW-size)/2
+	if x < xOffset {
+		x = xOffset
+	}
+	// Draw outline diamond using Bresenham's line algorithm for each edge
+	cx, cy := x+size/2, topY+size/2
+	r := size / 2
+	for i := 0; i <= r; i++ {
+		// Four symmetric points per row
+		c.Set(cx-i, cy-(r-i), col) // upper left
+		c.Set(cx+i, cy-(r-i), col) // upper right
+		c.Set(cx-i, cy+(r-i), col) // lower left
+		c.Set(cx+i, cy+(r-i), col) // lower right
+	}
+}
+
+func drawScorebookDiamondFilledCentered(c PixelCanvas, xOffset, topY, size int, col color.RGBA) {
+	panelW := 64
+	x := xOffset + (panelW-size)/2
+	if x < xOffset {
+		x = xOffset
+	}
+	cx, cy := x+size/2, topY+size/2
+	r := size / 2
+	for dy := -r; dy <= r; dy++ {
+		span := r - absInt(dy)
+		for dx := -span; dx <= span; dx++ {
+			c.Set(cx+dx, cy+dy, col)
+		}
+	}
 }
 
 // DrawLargeScore draws a two-digit score in a larger format

@@ -13,6 +13,7 @@ type Config struct {
 	DivisionStandings DivisionStandingsConfig `json:"division_standings"`
 	Hardware          HardwareConfig          `json:"hardware"`
 	LiveGame          LiveGameConfig          `json:"live_game"`
+	LiveLookIn        LiveLookInConfig        `json:"live_look_in"`
 	NextMatchup       NextMatchupConfig       `json:"next_matchup"`
 	LastMatchup       LastMatchupConfig       `json:"last_matchup"`
 	Termsim           TermsimConfig           `json:"termsim"`
@@ -30,6 +31,10 @@ type HardwareConfig struct {
 type LiveGameConfig struct {
 	HoldMS  int `json:"hold_ms"`
 	SlideMS int `json:"slide_ms"`
+}
+
+type LiveLookInConfig struct {
+	Repeats int `json:"repeats"`
 }
 
 type NextMatchupConfig struct {
@@ -58,6 +63,9 @@ func DefaultConfig() Config {
 		LiveGame: LiveGameConfig{
 			HoldMS:  2200,
 			SlideMS: 400,
+		},
+		LiveLookIn: LiveLookInConfig{
+			Repeats: 1,
 		},
 		NextMatchup: NextMatchupConfig{
 			HoldMS:  2500,

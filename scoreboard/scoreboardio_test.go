@@ -46,6 +46,18 @@ func TestScorekeepingLastPlayNotation(t *testing.T) {
 			want: "HR, 2 RBI",
 		},
 		{
+			name: "grand slam becomes gs notation",
+			play: &statsapi.BaseballPlayRestObject{
+				Result: &statsapi.Result{
+					EventType:   ptr(string(statsapi.EventTypeHomeRun)),
+					Event:       ptr("Home Run"),
+					Description: ptr("Batter hits a grand slam."),
+					Rbi:         int32Ptr(4),
+				},
+			},
+			want: "GS, 4 RBI",
+		},
+		{
 			name: "direct enum strikeout",
 			play: &statsapi.BaseballPlayRestObject{
 				Result: &statsapi.Result{
@@ -158,7 +170,7 @@ func TestScorekeepingLastPlayNotation(t *testing.T) {
 					Description: ptr("Something Unexpected"),
 				},
 			},
-			want: "Something Unexpected",
+			want: "",
 		},
 	}
 
@@ -169,6 +181,36 @@ func TestScorekeepingLastPlayNotation(t *testing.T) {
 				t.Fatalf("scorekeepingLastPlayNotation() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestShortLastPlayDescriptionPitchingChange(t *testing.T) {
+	ptr := func(s string) *string { return &s }
+	play := &statsapi.BaseballPlayRestObject{
+		Result: &statsapi.Result{
+			EventType:   ptr(string(statsapi.EventTypePitchingSubstitution)),
+			Event:       ptr("Pitching Substitution"),
+			Description: ptr("Pitching Change: Joe Smith replaces John Doe."),
+		},
+	}
+
+	if got := shortLastPlayDescription(play); got != "Pitching Change" {
+		t.Fatalf("shortLastPlayDescription() = %q, want %q", got, "Pitching Change")
+	}
+}
+
+func TestShortLastPlayDescriptionKeepsNormalDescription(t *testing.T) {
+	ptr := func(s string) *string { return &s }
+	play := &statsapi.BaseballPlayRestObject{
+		Result: &statsapi.Result{
+			EventType:   ptr(string(statsapi.EventTypeSingle)),
+			Event:       ptr("Single"),
+			Description: ptr("Line drive single to center."),
+		},
+	}
+
+	if got := shortLastPlayDescription(play); got != "Line drive single to center." {
+		t.Fatalf("shortLastPlayDescription() = %q, want %q", got, "Line drive single to center.")
 	}
 }
 

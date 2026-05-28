@@ -1,15 +1,97 @@
 package scoreboard
 
 import (
+	"fmt"
+	"image"
 	"image/color"
 	"testing"
 	"time"
 )
 
+type strictCanvas struct {
+	w, h int
+	pix  []color.RGBA
+}
+
+func newStrictCanvas(w, h int) *strictCanvas {
+	return &strictCanvas{w: w, h: h, pix: make([]color.RGBA, w*h)}
+}
+
+func (c *strictCanvas) Set(x, y int, col color.Color) {
+	if x < 0 || y < 0 || x >= c.w || y >= c.h {
+		panic(fmt.Sprintf("out of bounds Set(%d,%d)", x, y))
+	}
+	r, g, b, a := col.RGBA()
+	c.pix[y*c.w+x] = color.RGBA{R: uint8(r >> 8), G: uint8(g >> 8), B: uint8(b >> 8), A: uint8(a >> 8)}
+}
+
+func (c *strictCanvas) Bounds() image.Rectangle {
+	return image.Rect(0, 0, c.w, c.h)
+}
+
+func mockPixel(canvas *MockCanvas, x, y int) color.RGBA {
+	if x < 0 || y < 0 || x >= canvas.w || y >= canvas.h {
+		return color.RGBA{}
+	}
+	return canvas.pix[y*canvas.w+x]
+}
+
 func TestSetLiveGameTimingDefaults(t *testing.T) {
 	SetLiveGameTiming(0, 0)
 	if liveGameHoldDuration != 2200*time.Millisecond || liveGameSlideDuration != 400*time.Millisecond {
 		t.Fatalf("expected default live game timing, got hold=%s slide=%s", liveGameHoldDuration, liveGameSlideDuration)
+	}
+}
+
+func TestSetLiveLookInRepeatsDefaultsNegativeValues(t *testing.T) {
+	SetLiveLookInRepeats(-1)
+	if liveLookInRepeats != 1 {
+		t.Fatalf("expected negative repeats to reset to default 1, got %d", liveLookInRepeats)
+	}
+}
+
+func TestSetLiveLookInRepeatsAllowsZero(t *testing.T) {
+	SetLiveLookInRepeats(0)
+	if liveLookInRepeats != 0 {
+		t.Fatalf("expected live look-in repeats to allow 0, got %d", liveLookInRepeats)
+	}
+	SetLiveLookInRepeats(1)
+}
+
+func TestMeasureTightText5x8WidthShrinksNotationTracking(t *testing.T) {
+	notation := "GDP6-4"
+	if got, want := measureTightText5x8Width(notation), measureText5x8Width(notation); got >= want {
+		t.Fatalf("expected tight tracking width %d to be smaller than normal %d", got, want)
+	}
+}
+
+func TestLastPlayDiamondColorDimsLongNotation(t *testing.T) {
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	short := ScoreboardLiveGame{LastPlayNotation: "2B"}
+	if got := lastPlayDiamondColor(short, orange); got != orange {
+		t.Fatalf("expected short notation diamond color %v, got %v", orange, got)
+	}
+
+	long := ScoreboardLiveGame{LastPlayNotation: "GDP5-4"}
+	wantDim := color.RGBA{R: 178, G: 105, B: 35, A: 255}
+	if got := lastPlayDiamondColor(long, orange); got != wantDim {
+		t.Fatalf("expected long notation diamond color %v, got %v", wantDim, got)
+	}
+}
+
+func TestNormalizeLastPlayDisplayNotationDropsDashWhenStillTooWide(t *testing.T) {
+	if got := normalizeLastPlayDisplayNotation("GDP5-4"); got != "GDP54" {
+		t.Fatalf("normalizeLastPlayDisplayNotation() = %q, want %q", got, "GDP54")
+	}
+	if got := normalizeLastPlayDisplayNotation("K"); got != "K" {
+		t.Fatalf("normalizeLastPlayDisplayNotation() = %q, want %q", got, "K")
+	}
+}
+
+func TestMeasureLiveGameStatusTextWidthTightensExtraInningsSpacing(t *testing.T) {
+	game := ScoreboardLiveGame{Inning: 10, HalfInning: "bottom", Balls: 3, Strikes: 2}
+	if got, wantMax := measureLiveGameStatusTextWidth(game), measureText5x8Width("B10 3-2")-1; got > wantMax {
+		t.Fatalf("expected tightened status width <= %d, got %d", wantMax, got)
 	}
 }
 
@@ -138,7 +220,8 @@ func TestDrawLiveGameFrameLastPlayPanel(t *testing.T) {
 	game := ScoreboardLiveGame{
 		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
 		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
-		LastPlayNotation: "RBI single to center",
+		LastPlayNotation: "2B, 2 RBI",
+		LastPlayRBIs:     2,
 	}
 
 	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
@@ -147,12 +230,211 @@ func TestDrawLiveGameFrameLastPlayPanel(t *testing.T) {
 		NextPanelIndex: -1,
 	})
 
-	grey := color.RGBA{R: 120, G: 120, B: 120, A: 255}
 	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
-	if countColorInBand(canvas, grey, 29, 36) == 0 {
-		t.Fatalf("expected last play title to render")
-	}
-	if countColorInBand(canvas, orange, 38, 63) == 0 {
+	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
+	black := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	if countColorInBand(canvas, orange, 29, 63) == 0 {
 		t.Fatalf("expected last play text to render")
+	}
+	if mockPixel(canvas, 31, 29) != orange {
+		t.Fatalf("expected short-play diamond to stay bright")
+	}
+	if mockPixel(canvas, 40, 54) != white || mockPixel(canvas, 40, 36) != white {
+		t.Fatalf("expected white offset advancement path for a double")
+	}
+	if mockPixel(canvas, 50, 45) != black {
+		t.Fatalf("expected old outside runner marker to be removed")
+	}
+	if mockPixel(canvas, 55, 34) != orange || mockPixel(canvas, 55, 41) != orange {
+		t.Fatalf("expected RBI dots on right side")
+	}
+}
+
+func TestDrawLiveGameFrameLongLastPlayDimsDiamond(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "GDP5-4",
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     3,
+		NextPanelIndex: -1,
+	})
+
+	dimOrange := color.RGBA{R: 178, G: 105, B: 35, A: 255}
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	if mockPixel(canvas, 31, 29) != dimOrange {
+		t.Fatalf("expected long-play diamond to use dim orange")
+	}
+	if countColorInBand(canvas, orange, 29, 63) == 0 {
+		t.Fatalf("expected long-play notation to remain bright orange")
+	}
+}
+
+func TestDrawLiveGameFrameHomeRunUsesFilledDiamondWithNegativeSpaceText(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "HR",
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     3,
+		NextPanelIndex: -1,
+	})
+
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	black := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	if mockPixel(canvas, 31, 52) != orange {
+		t.Fatalf("expected HR diamond interior to be filled")
+	}
+	if countColorInBand(canvas, black, 41, 48) == 0 {
+		t.Fatalf("expected HR letters to render in negative space")
+	}
+}
+
+func TestDrawLiveGameFrameGrandSlamBlinkOnUsesFilledDiamondWithNegativeSpaceGS(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "HR, 4 RBI",
+		LastPlay:         "Grand slam to right.",
+		LastPlayRBIs:     4,
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     3,
+		NextPanelIndex: -1,
+		GSBlinkOn:      true,
+	})
+
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	black := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	white := color.RGBA{R: 220, G: 220, B: 220, A: 255}
+	if mockPixel(canvas, 31, 52) != orange {
+		t.Fatalf("expected GS diamond interior to be filled when blink is on")
+	}
+	if countColorInBand(canvas, black, 41, 48) == 0 {
+		t.Fatalf("expected GS letters to render in negative space when blink is on")
+	}
+	if countColorInBand(canvas, white, 29, 63) == 0 {
+		t.Fatalf("expected grand slam to keep the outside advancement path")
+	}
+}
+
+func TestDrawLiveGameFrameGrandSlamBlinkOffUsesOutlineAndOrangeGSText(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "GS, 4 RBI",
+		LastPlay:         "Grand slam to center.",
+		LastPlayRBIs:     4,
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     3,
+		NextPanelIndex: -1,
+		GSBlinkOn:      false,
+	})
+
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	black := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	if mockPixel(canvas, 31, 52) != black {
+		t.Fatalf("expected GS diamond interior to go dark when blink is off")
+	}
+	if countColorInBand(canvas, orange, 41, 48) == 0 {
+		t.Fatalf("expected GS text to stay orange when blink is off")
+	}
+}
+
+func TestDrawLiveGameFrameLastPlayPanelDoesNotBleedWhenOffscreen(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "RBI single to center",
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     3,
+		NextPanelIndex: 0,
+		SlideOffset:    64,
+	})
+
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	if countColorInBand(canvas, orange, 29, 63) != 0 {
+		t.Fatalf("expected offscreen last play panel to leave no visible orange pixels")
+	}
+}
+
+func TestDrawLiveGameFrameLastPlayPanelClipsRightEdge(t *testing.T) {
+	canvas := newStrictCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "RBI single to center",
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     2,
+		NextPanelIndex: 3,
+		SlideOffset:    0,
+	})
+}
+
+func TestDrawLiveGameFrameLastPlayPanelLookingStrikeoutUsesBackwardK(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "K",
+		LastPlay:         "Called strike three looking.",
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     3,
+		NextPanelIndex: -1,
+	})
+
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	black := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	if mockPixel(canvas, 29, 44) != black {
+		t.Fatalf("expected mirrored K to leave left row-1 pixel empty")
+	}
+	if mockPixel(canvas, 32, 44) != orange || mockPixel(canvas, 33, 44) != orange {
+		t.Fatalf("expected mirrored K row to render on the right-shifted columns")
+	}
+}
+
+func TestDrawLiveGameFrameLastPlayPanelSwingingStrikeoutKeepsNormalK(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "K",
+		LastPlay:         "Strikeout swinging.",
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     3,
+		NextPanelIndex: -1,
+	})
+
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	if mockPixel(canvas, 29, 44) != orange || mockPixel(canvas, 30, 44) != orange {
+		t.Fatalf("expected standard K shape for non-looking strikeout")
 	}
 }
