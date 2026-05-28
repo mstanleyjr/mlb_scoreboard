@@ -50,6 +50,7 @@ func main() {
 	scoreboard.SetDivisionStandingsMonochrome(monochrome)
 	scoreboard.SetDivisionStandingsGreenBackground(greenBackground)
 	scoreboard.SetLiveGameTiming(cfg.LiveGame.HoldMS, cfg.LiveGame.SlideMS)
+	scoreboard.SetLiveLookInRepeats(cfg.LiveLookIn.Repeats)
 	scoreboard.SetNextMatchupTiming(cfg.NextMatchup.HoldMS, cfg.NextMatchup.SlideMS)
 	scoreboard.SetLastMatchupTiming(cfg.LastMatchup.HoldMS, cfg.LastMatchup.SlideMS)
 

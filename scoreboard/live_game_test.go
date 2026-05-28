@@ -43,6 +43,21 @@ func TestSetLiveGameTimingDefaults(t *testing.T) {
 	}
 }
 
+func TestSetLiveLookInRepeatsDefaultsNegativeValues(t *testing.T) {
+	SetLiveLookInRepeats(-1)
+	if liveLookInRepeats != 1 {
+		t.Fatalf("expected negative repeats to reset to default 1, got %d", liveLookInRepeats)
+	}
+}
+
+func TestSetLiveLookInRepeatsAllowsZero(t *testing.T) {
+	SetLiveLookInRepeats(0)
+	if liveLookInRepeats != 0 {
+		t.Fatalf("expected live look-in repeats to allow 0, got %d", liveLookInRepeats)
+	}
+	SetLiveLookInRepeats(1)
+}
+
 func TestMeasureTightText5x8WidthShrinksNotationTracking(t *testing.T) {
 	notation := "GDP6-4"
 	if got, want := measureTightText5x8Width(notation), measureText5x8Width(notation); got >= want {

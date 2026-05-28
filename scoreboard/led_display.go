@@ -36,6 +36,7 @@ var lastMatchupHoldDuration = 2500 * time.Millisecond
 var lastMatchupSlideDuration = 500 * time.Millisecond
 var liveGameHoldDuration = 2200 * time.Millisecond
 var liveGameSlideDuration = 400 * time.Millisecond
+var liveLookInRepeats = 1
 
 type divisionStandingsPalette struct {
 	background color.RGBA
@@ -87,6 +88,13 @@ func SetLiveGameTiming(holdMS, slideMS int) {
 	}
 	liveGameHoldDuration = time.Duration(holdMS) * time.Millisecond
 	liveGameSlideDuration = time.Duration(slideMS) * time.Millisecond
+}
+
+func SetLiveLookInRepeats(repeats int) {
+	if repeats < 0 {
+		repeats = 1
+	}
+	liveLookInRepeats = repeats
 }
 
 func divisionStandingsColors() divisionStandingsPalette {

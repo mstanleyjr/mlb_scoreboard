@@ -10,6 +10,9 @@
     "hold_ms": 5000,
     "slide_ms": 500
   },
+  "live_look_in": {
+    "repeats": 3
+  },
   "next_matchup": {
     "hold_ms": 3500,
     "slide_ms": 500

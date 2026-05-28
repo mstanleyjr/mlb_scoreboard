@@ -752,48 +752,59 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 
 func LiveLookInDisplay(ctx context.Context, info ScoreboardInformation, m *statsapi.MLBClient, controller *DisplayController) {
 	gameIds := FindAllActiveGameIds(info)
+	if liveLookInRepeats == 0 || len(gameIds) == 0 {
+		return
+	}
 
 	callInterval := time.Second * 20
-	for _, gameId := range gameIds {
-		liveGame, err := m.GetLiveGame(ctx, gameId)
-		if err != nil {
-			println("Error getting live game data: ", err.Error())
-			continue
-		}
-
-		gameInfo, err := getLiveGameInfo(liveGame)
-		if err != nil {
-			println("Error getting live game info: ", err.Error())
-			continue
-		}
-
-		if gameInfo.CurrentBatterId != 0 && gameInfo.CurrentPitcherId != 0 {
-			batterStats, err := m.GetMLBPLayerStats(ctx, gameInfo.CurrentBatterId)
-			if err != nil {
-				println("Error getting batter stats: ", err.Error())
+	for repeat := 0; repeat < liveLookInRepeats; repeat++ {
+		for _, gameId := range gameIds {
+			select {
+			case <-ctx.Done():
+				return
+			default:
 			}
-			batter := getScoreboardLiveGameBatter(info, batterStats, liveGame, gameInfo)
 
-			fmt.Printf("Batter stats: %+v\n", batter)
-			gameInfo.CurrentBatter = batter
-
-			pitcherStats, err := m.GetMLBPLayerStats(ctx, gameInfo.CurrentPitcherId)
+			liveGame, err := m.GetLiveGame(ctx, gameId)
 			if err != nil {
-				println("Error getting pitcher stats: ", err.Error())
+				println("Error getting live game data: ", err.Error())
+				continue
 			}
-			pitcher := getScoreboardLiveGamePitcher(info, pitcherStats, liveGame)
-			fmt.Printf("Pitcher stats: %+v\n", pitcher)
-			gameInfo.CurrentPitcher = pitcher
+
+			gameInfo, err := getLiveGameInfo(liveGame)
+			if err != nil {
+				println("Error getting live game info: ", err.Error())
+				continue
+			}
+
+			if gameInfo.CurrentBatterId != 0 && gameInfo.CurrentPitcherId != 0 {
+				batterStats, err := m.GetMLBPLayerStats(ctx, gameInfo.CurrentBatterId)
+				if err != nil {
+					println("Error getting batter stats: ", err.Error())
+				}
+				batter := getScoreboardLiveGameBatter(info, batterStats, liveGame, gameInfo)
+
+				fmt.Printf("Batter stats: %+v\n", batter)
+				gameInfo.CurrentBatter = batter
+
+				pitcherStats, err := m.GetMLBPLayerStats(ctx, gameInfo.CurrentPitcherId)
+				if err != nil {
+					println("Error getting pitcher stats: ", err.Error())
+				}
+				pitcher := getScoreboardLiveGamePitcher(info, pitcherStats, liveGame)
+				fmt.Printf("Pitcher stats: %+v\n", pitcher)
+				gameInfo.CurrentPitcher = pitcher
+			}
+
+			fmt.Printf("Live look-in for game ID %d: %+v\n", gameId, gameInfo)
+
+			DisplayMutex.Lock()
+			CurrentDisplayType = DisplayTypeLiveGame
+			CurrentDisplayData = gameInfo
+			DisplayMutex.Unlock()
+
+			DisplayLoop(1*time.Second, callInterval, controller)
 		}
-
-		fmt.Printf("Live look-in for game ID %d: %+v\n", gameId, gameInfo)
-
-		DisplayMutex.Lock()
-		CurrentDisplayType = DisplayTypeLiveGame
-		CurrentDisplayData = gameInfo
-		DisplayMutex.Unlock()
-
-		DisplayLoop(1*time.Second, callInterval, controller)
 	}
 
 	println("Finishing live look-in display")
