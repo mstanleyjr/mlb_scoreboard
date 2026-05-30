@@ -267,6 +267,49 @@ func TestGetScoreboardLiveGameBatter_NilSafe(t *testing.T) {
 			t.Fatalf("expected lookup last name Quero, got %+v", got)
 		}
 	})
+
+	assertNoPanic(t, "boxscore-backed batter names", func() {
+		game := statsapi.BaseballGameRestObject{
+			LiveData: &statsapi.BaseballGameLiveDataRestObject{
+				Plays: &statsapi.BaseballPlayByPlayRestObject{
+					CurrentPlay: &statsapi.BaseballPlayRestObject{
+						Matchup: &statsapi.Matchup{
+							Batter: &statsapi.BaseballPersonRestObject{
+								Id: int32Ptr(700337),
+							},
+						},
+					},
+				},
+				Boxscore: &statsapi.BaseballBoxscoreRestObject{
+					Teams: &map[string]statsapi.BaseballTeamBoxscore{
+						"away": {
+							Players: &map[string]statsapi.BaseballRosterEntryRestObject{
+								"ID700337": {
+									Person: &statsapi.BaseballPersonRestObject{
+										Id:       int32Ptr(700337),
+										FullName: ptr("Edgar Quero"),
+										LastName: ptr("Quero"),
+									},
+									Position: &statsapi.BaseballPosition{Abbreviation: ptr("C")},
+									Stats: &statsapi.StatsRestObject{
+										Batting: &statsapi.BattingData{
+											Hits:    int32Ptr(1),
+											AtBats:  int32Ptr(2),
+											Summary: ptr("1-2"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		got := getScoreboardLiveGameBatter(ScoreboardInformation{}, statsapi.PlayerStatsResponse{}, game, ScoreboardLiveGame{CurrentBatterId: 700337})
+		if got.FullName != "Edgar Quero" || got.LastName != "Quero" || got.CurrentPosition != "C" || got.GameHits != 1 || got.GameAtBats != 2 || got.Summary != "1-2" {
+			t.Fatalf("expected boxscore-backed batter details, got %+v", got)
+		}
+	})
 }
 
 func TestGetScoreboardLiveGamePitcher_NilSafe(t *testing.T) {
@@ -320,6 +363,44 @@ func TestGetScoreboardLiveGamePitcher_NilSafe(t *testing.T) {
 		got := getScoreboardLiveGamePitcher(info, statsapi.PlayerStatsResponse{}, game)
 		if got.FullName != "Brad Lord" || got.LastName != "Lord" {
 			t.Fatalf("expected lookup last name Lord, got %+v", got)
+		}
+	})
+
+	assertNoPanic(t, "boxscore-backed pitcher names", func() {
+		game := statsapi.BaseballGameRestObject{
+			LiveData: &statsapi.BaseballGameLiveDataRestObject{
+				Plays: &statsapi.BaseballPlayByPlayRestObject{
+					CurrentPlay: &statsapi.BaseballPlayRestObject{
+						Matchup: &statsapi.Matchup{
+							Pitcher: &statsapi.BaseballPersonRestObject{
+								Id: int32Ptr(701643),
+							},
+						},
+					},
+				},
+				Boxscore: &statsapi.BaseballBoxscoreRestObject{
+					Teams: &map[string]statsapi.BaseballTeamBoxscore{
+						"home": {
+							Players: &map[string]statsapi.BaseballRosterEntryRestObject{
+								"ID701643": {
+									Person: &statsapi.BaseballPersonRestObject{
+										Id:       int32Ptr(701643),
+										FullName: ptr("Brad Lord"),
+										LastName: ptr("Lord"),
+										PitchHand: &statsapi.DynamicEnumRestObject{
+											Code: ptr("R"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		got := getScoreboardLiveGamePitcher(ScoreboardInformation{}, statsapi.PlayerStatsResponse{}, game)
+		if got.FullName != "Brad Lord" || got.LastName != "Lord" || got.Hand != "R" {
+			t.Fatalf("expected boxscore-backed pitcher details, got %+v", got)
 		}
 	})
 }
