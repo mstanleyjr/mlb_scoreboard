@@ -100,9 +100,11 @@ func (m *MLBClient) PlayerLookupSnapshot() map[int32]BaseballPersonRestObject {
 
 func (m *MLBClient) GetMLBPlayers(ctx context.Context) ([]BaseballPersonRestObject, error) {
 	seasonID := MLB_SEASON
+	accent := false
 
 	resp, err := m.client.SportPlayers(ctx, MLB_SPORTS_ID, &SportPlayersParams{
 		Season: &seasonID,
+		Accent: &accent,
 	})
 	if err != nil {
 		println("Error getting players: ", err.Error())
@@ -358,7 +360,8 @@ func (m *MLBClient) GetMLBPLayerStats(ctx context.Context, playerID int32) (Play
 }
 
 func (m *MLBClient) GetMLBPlayer(ctx context.Context, playerID int32) (BaseballPersonRestObject, error) {
-	resp, err := m.client.Person(ctx, playerID, &PersonParams{})
+	accent := false
+	resp, err := m.client.Person(ctx, playerID, &PersonParams{Accent: &accent})
 	if err != nil {
 		println("Error getting player data: ", err.Error())
 		return BaseballPersonRestObject{}, err
