@@ -692,8 +692,6 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 		}
 	}
 
-	var currentBatterId, currentPitcherId int32
-
 	for *liveGame.GameData.Status.AbstractGameCode == "L" {
 		gameInfo, err := getLiveGameInfo(liveGame)
 		if err != nil {
@@ -702,29 +700,25 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 
 		gameInfo.GameType = gameType
 
-		if currentBatterId != gameInfo.CurrentBatterId || currentPitcherId != gameInfo.CurrentPitcherId {
-			if gameInfo.CurrentBatterId != 0 && gameInfo.CurrentPitcherId != 0 {
-				// Make the api calls
-				currentPitcherId = gameInfo.CurrentPitcherId
-
-				batterStats, err := m.GetMLBPLayerStats(ctx, gameInfo.CurrentBatterId)
-				if err != nil {
-					println("Error getting batter stats: ", err.Error())
-				}
-				currentBatterId = gameInfo.CurrentBatterId
-				batter := getScoreboardLiveGameBatter(info, batterStats, liveGame, gameInfo)
-
-				fmt.Printf("Batter stats: %+v\n", batter)
-				gameInfo.CurrentBatter = batter
-
-				pitcherStats, err := m.GetMLBPLayerStats(ctx, gameInfo.CurrentPitcherId)
-				if err != nil {
-					println("Error getting pitcher stats: ", err.Error())
-				}
-				pitcher := getScoreboardLiveGamePitcher(info, pitcherStats, liveGame)
-				fmt.Printf("Pitcher stats: %+v\n", pitcher)
-				gameInfo.CurrentPitcher = pitcher
+		if gameInfo.CurrentBatterId != 0 {
+			batterStats, err := m.GetMLBPLayerStats(ctx, gameInfo.CurrentBatterId)
+			if err != nil {
+				println("Error getting batter stats: ", err.Error())
 			}
+			batter := getScoreboardLiveGameBatter(info, batterStats, liveGame, gameInfo)
+
+			fmt.Printf("Batter stats: %+v\n", batter)
+			gameInfo.CurrentBatter = batter
+		}
+
+		if gameInfo.CurrentPitcherId != 0 {
+			pitcherStats, err := m.GetMLBPLayerStats(ctx, gameInfo.CurrentPitcherId)
+			if err != nil {
+				println("Error getting pitcher stats: ", err.Error())
+			}
+			pitcher := getScoreboardLiveGamePitcher(info, pitcherStats, liveGame)
+			fmt.Printf("Pitcher stats: %+v\n", pitcher)
+			gameInfo.CurrentPitcher = pitcher
 		}
 
 		// Set display state for LED matrix after enriching the live-game payload.
