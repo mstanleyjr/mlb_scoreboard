@@ -702,12 +702,6 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 
 		gameInfo.GameType = gameType
 
-		// Set display state for LED matrix
-		DisplayMutex.Lock()
-		CurrentDisplayType = DisplayTypeLiveGame
-		CurrentDisplayData = gameInfo
-		DisplayMutex.Unlock()
-
 		if currentBatterId != gameInfo.CurrentBatterId || currentPitcherId != gameInfo.CurrentPitcherId {
 			if gameInfo.CurrentBatterId != 0 && gameInfo.CurrentPitcherId != 0 {
 				// Make the api calls
@@ -732,6 +726,12 @@ func ActiveGameDisplay(ctx context.Context, game statsapi.BaseballScheduleItemRe
 				gameInfo.CurrentPitcher = pitcher
 			}
 		}
+
+		// Set display state for LED matrix after enriching the live-game payload.
+		DisplayMutex.Lock()
+		CurrentDisplayType = DisplayTypeLiveGame
+		CurrentDisplayData = gameInfo
+		DisplayMutex.Unlock()
 
 		// Keep display state updated; renderer loop draws from CurrentDisplayData.
 		DisplayLoop(1*time.Second, callInterval, controller)

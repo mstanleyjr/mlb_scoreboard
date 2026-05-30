@@ -872,9 +872,31 @@ func getGameTypeFromLookup(lookup string) string {
 	}
 }
 
+func boxscorePlayerByID(liveGame statsapi.BaseballGameRestObject, playerID int32) *statsapi.BaseballRosterEntryRestObject {
+	if playerID == 0 || liveGame.LiveData == nil || liveGame.LiveData.Boxscore == nil || liveGame.LiveData.Boxscore.Teams == nil {
+		return nil
+	}
+
+	teams := *liveGame.LiveData.Boxscore.Teams
+	idKey := "ID" + fmt.Sprint(playerID)
+	for _, side := range []string{"away", "home"} {
+		team, ok := teams[side]
+		if !ok || team.Players == nil {
+			continue
+		}
+		if player, ok := (*team.Players)[idKey]; ok {
+			playerCopy := player
+			return &playerCopy
+		}
+	}
+
+	return nil
+}
+
 func getScoreboardLiveGameBatter(info ScoreboardInformation, batterStats statsapi.PlayerStatsResponse, liveGame statsapi.BaseballGameRestObject, gameInfo ScoreboardLiveGame) ScoreboardLiveGameBatter {
 	var fullName, lastName, currentBatterPosition, battingAverage, ops, summary string
 	var hits, atBats int32
+	var boxscorePlayer *statsapi.BaseballRosterEntryRestObject
 
 	if liveGame.LiveData != nil && liveGame.LiveData.Plays != nil && liveGame.LiveData.Plays.CurrentPlay != nil && liveGame.LiveData.Plays.CurrentPlay.Matchup != nil && liveGame.LiveData.Plays.CurrentPlay.Matchup.Batter != nil {
 		batter := liveGame.LiveData.Plays.CurrentPlay.Matchup.Batter
@@ -889,42 +911,34 @@ func getScoreboardLiveGameBatter(info ScoreboardInformation, batterStats statsap
 			lastName = *batterSource.LastName
 		}
 
-		if liveGame.LiveData.Boxscore != nil && liveGame.LiveData.Boxscore.Teams != nil {
-			teams := *liveGame.LiveData.Boxscore.Teams
-			var players map[string]statsapi.BaseballRosterEntryRestObject
-			if strings.ToLower(gameInfo.HalfInning) == "top" {
-				if team, ok := teams["away"]; ok && team.Players != nil {
-					players = *team.Players
-				}
-			} else {
-				if team, ok := teams["home"]; ok && team.Players != nil {
-					players = *team.Players
+		boxscorePlayer = boxscorePlayerByID(liveGame, gameInfo.CurrentBatterId)
+		if boxscorePlayer == nil && batter.Id != nil {
+			boxscorePlayer = boxscorePlayerByID(liveGame, *batter.Id)
+		}
+		if boxscorePlayer != nil {
+			if strings.TrimSpace(fullName) == "" && boxscorePlayer.Person != nil && boxscorePlayer.Person.FullName != nil {
+				fullName = *boxscorePlayer.Person.FullName
+			}
+			if strings.TrimSpace(lastName) == "" && boxscorePlayer.Person != nil && boxscorePlayer.Person.LastName != nil {
+				lastName = *boxscorePlayer.Person.LastName
+			}
+			if boxscorePlayer.Position != nil {
+				if boxscorePlayer.Position.Abbreviation != nil {
+					currentBatterPosition = *boxscorePlayer.Position.Abbreviation
+				} else if boxscorePlayer.Position.Code != nil {
+					currentBatterPosition = *boxscorePlayer.Position.Code
 				}
 			}
 
-			if players != nil {
-				idKey := "ID" + fmt.Sprint(gameInfo.CurrentBatterId)
-				person, exists := players[idKey]
-				if exists {
-					if person.Position != nil {
-						if person.Position.Abbreviation != nil {
-							currentBatterPosition = *person.Position.Abbreviation
-						} else if person.Position.Code != nil {
-							currentBatterPosition = *person.Position.Code
-						}
-					}
-
-					if person.Stats != nil && person.Stats.Batting != nil {
-						if person.Stats.Batting.Hits != nil {
-							hits = *person.Stats.Batting.Hits
-						}
-						if person.Stats.Batting.AtBats != nil {
-							atBats = *person.Stats.Batting.AtBats
-						}
-						if person.Stats.Batting.Summary != nil {
-							summary = *person.Stats.Batting.Summary
-						}
-					}
+			if boxscorePlayer.Stats != nil && boxscorePlayer.Stats.Batting != nil {
+				if boxscorePlayer.Stats.Batting.Hits != nil {
+					hits = *boxscorePlayer.Stats.Batting.Hits
+				}
+				if boxscorePlayer.Stats.Batting.AtBats != nil {
+					atBats = *boxscorePlayer.Stats.Batting.AtBats
+				}
+				if boxscorePlayer.Stats.Batting.Summary != nil {
+					summary = *boxscorePlayer.Stats.Batting.Summary
 				}
 			}
 		}
@@ -977,6 +991,19 @@ func getScoreboardLiveGamePitcher(info ScoreboardInformation, pitcherStats stats
 				lastName = *pitcherSource.LastName
 			}
 			throwingHand = getPitchHandFromPerson(pitcherSource)
+
+			boxscorePlayer := boxscorePlayerByID(liveGame, choosePlayerID(liveGame.LiveData.Plays.CurrentPlay.Matchup.Pitcher.Id))
+			if boxscorePlayer != nil && boxscorePlayer.Person != nil {
+				if strings.TrimSpace(fullName) == "" && boxscorePlayer.Person.FullName != nil {
+					fullName = *boxscorePlayer.Person.FullName
+				}
+				if strings.TrimSpace(lastName) == "" && boxscorePlayer.Person.LastName != nil {
+					lastName = *boxscorePlayer.Person.LastName
+				}
+				if throwingHand == "" {
+					throwingHand = getPitchHandFromPerson(boxscorePlayer.Person)
+				}
+			}
 		}
 		if throwingHand == "" && liveGame.LiveData.Plays.CurrentPlay.Matchup.PitchHand != nil && liveGame.LiveData.Plays.CurrentPlay.Matchup.PitchHand.Code != nil {
 			throwingHand = *liveGame.LiveData.Plays.CurrentPlay.Matchup.PitchHand.Code
@@ -994,6 +1021,13 @@ func getScoreboardLiveGamePitcher(info ScoreboardInformation, pitcherStats stats
 		Losses:   losses,
 		Saves:    saves,
 	}
+}
+
+func choosePlayerID(playerID *int32) int32 {
+	if playerID == nil {
+		return 0
+	}
+	return *playerID
 }
 
 func GetScoreboardPitcherStats(pitcherStats statsapi.PlayerStatsResponse) (era string, wins int32, losses int32, saves int32) {
