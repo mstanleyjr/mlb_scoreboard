@@ -3,12 +3,14 @@ package scoreboard
 import (
 	"testing"
 	"time"
+
+	"github.com/mstanleyjr/mlb_scoreboard/third-party/oapi/statsapi"
 )
 
 func TestDivisionStandingsMaxScrollOffset(t *testing.T) {
 	compact := ScoreboardDivision{
 		Sections: []ScoreboardStandingsSection{
-			{Title: "AL EAST", Teams: []ScoreboardDivisionTeam{{Rank: 1}, {Rank: 2}}},
+			{Title: "AL EAST", Teams: []ScoreboardDivisionTeam{{Rank: 1}}},
 		},
 	}
 	if got := divisionStandingsMaxScrollOffset(compact); got != 0 {
@@ -57,7 +59,7 @@ func TestDivisionStandingsScrollOffset(t *testing.T) {
 func TestStandingsRollupDuration(t *testing.T) {
 	compact := ScoreboardDivision{
 		Sections: []ScoreboardStandingsSection{
-			{Title: "AL EAST", Teams: []ScoreboardDivisionTeam{{Rank: 1}, {Rank: 2}}},
+			{Title: "AL EAST", Teams: []ScoreboardDivisionTeam{{Rank: 1}}},
 		},
 	}
 	if got := standingsRollupDuration(compact, 0); got != 12*time.Second {
@@ -72,5 +74,47 @@ func TestStandingsRollupDuration(t *testing.T) {
 	}
 	if got := standingsRollupDuration(tall, 0); got <= 12*time.Second {
 		t.Fatalf("expected tall standings duration above base duration, got %s", got)
+	}
+}
+
+func TestStandingsTeamsForDivisionIncludesWildCardGamesBack(t *testing.T) {
+	divisionID := int32(200)
+	teamName := "Washington Nationals"
+	teamShort := "Nationals"
+	divisionGB := "2.5"
+	wildCardGB := "1.0"
+	divisionRank := "3"
+	wins := int32(40)
+	losses := int32(35)
+
+	teams := standingsTeamsForDivision(statsapi.StandingsRestObject{
+		Records: &[]statsapi.TeamStandingsRecordContainerRestObject{
+			{
+				Division: &statsapi.DivisionRestObject{Id: &divisionID},
+				TeamRecords: &[]statsapi.TeamStandingsRecordRestObject{
+					{
+						DivisionRank:      &divisionRank,
+						DivisionGamesBack: &divisionGB,
+						WildCardGamesBack: &wildCardGB,
+						Wins:              &wins,
+						Losses:            &losses,
+						Team: &statsapi.BaseballTeamRestObject{
+							Name:     &teamName,
+							TeamName: &teamShort,
+						},
+					},
+				},
+			},
+		},
+	}, statsapi.DivisionRestObject{Id: &divisionID})
+
+	if len(teams) != 1 {
+		t.Fatalf("expected 1 team, got %d", len(teams))
+	}
+	if teams[0].WildCardGamesBack != wildCardGB {
+		t.Fatalf("expected wildcard games back %q, got %q", wildCardGB, teams[0].WildCardGamesBack)
+	}
+	if teams[0].GamesBack != divisionGB {
+		t.Fatalf("expected division games back %q, got %q", divisionGB, teams[0].GamesBack)
 	}
 }

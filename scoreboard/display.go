@@ -152,6 +152,10 @@ func standingsTeamsForDivision(standings statsapi.StandingsRestObject, division 
 			if standing.DivisionGamesBack != nil {
 				gamesBack = *standing.DivisionGamesBack
 			}
+			wildCardGamesBack := ""
+			if standing.WildCardGamesBack != nil {
+				wildCardGamesBack = *standing.WildCardGamesBack
+			}
 
 			teams = append(teams, ScoreboardDivisionTeam{
 				Name:      *standing.Team.Name,
@@ -161,8 +165,16 @@ func standingsTeamsForDivision(standings statsapi.StandingsRestObject, division 
 					Wins:   wins,
 					Losses: losses,
 				},
-				GamesBack: gamesBack,
+				GamesBack:         gamesBack,
+				WildCardGamesBack: wildCardGamesBack,
 			})
+			fmt.Printf("division=%s team=%s rank=%d gb=%s wcgb=%s\n",
+				chooseString(division.NameShort, division.Name, ""),
+				*standing.Team.Name,
+				rank,
+				gamesBack,
+				wildCardGamesBack,
+			)
 		}
 
 		sort.SliceStable(teams, func(i, j int) bool {

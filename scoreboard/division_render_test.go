@@ -5,6 +5,30 @@ import (
 	"testing"
 )
 
+func findColorBoundsInRows(canvas *MockCanvas, want color.RGBA, startY, endY int) (int, int, bool) {
+	minX := canvas.w
+	maxX := -1
+	found := false
+	for y := startY; y <= endY; y++ {
+		if y < 0 || y >= canvas.h {
+			continue
+		}
+		for x := 0; x < canvas.w; x++ {
+			if canvas.pix[y*canvas.w+x] != want {
+				continue
+			}
+			if x < minX {
+				minX = x
+			}
+			if x > maxX {
+				maxX = x
+			}
+			found = true
+		}
+	}
+	return minX, maxX, found
+}
+
 func TestTrimText5x8ToWidthPreservesWhiteSox(t *testing.T) {
 	const teamAreaWidth = 64 - divisionStandingsTeamX - 1
 
@@ -16,6 +40,12 @@ func TestTrimText5x8ToWidthPreservesWhiteSox(t *testing.T) {
 func TestFormatDivisionGamesBackPreservesHalfGames(t *testing.T) {
 	if got := trimToChars(formatDivisionGamesBack("11.5"), divisionStandingsMaxGBChars); got != "11.5" {
 		t.Fatalf("expected 11.5 games back to be preserved, got %q", got)
+	}
+}
+
+func TestFormatDivisionGamesBackPreservesWholeGames(t *testing.T) {
+	if got := formatDivisionGamesBack("5.0"); got != "5.0" {
+		t.Fatalf("expected 5.0 games back to be preserved, got %q", got)
 	}
 }
 
@@ -190,5 +220,68 @@ func TestDrawDivisionStandingsSecondRowGetsSameTopSpacing(t *testing.T) {
 	}
 	if got := canvas.pix[secondNameY*canvas.w+divisionStandingsTeamX]; got == (color.RGBA{}) {
 		t.Fatalf("expected second team row to render at y=%d", secondNameY)
+	}
+}
+
+func TestDrawDivisionStandingsSplitsGBLabelsAndValues(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	SetDivisionStandingsMonochrome(false)
+	SetDivisionStandingsGreenBackground(false)
+	division := ScoreboardDivision{
+		Sections: []ScoreboardStandingsSection{
+			{
+				Title: "AL EAST",
+				Teams: []ScoreboardDivisionTeam{
+					{
+						Name:              "Boston Red Sox",
+						ShortName:         "Red Sox",
+						Rank:              4,
+						Record:            ScoreboardWinLossRecord{Wins: 10, Losses: 5},
+						GamesBack:         "28.0",
+						WildCardGamesBack: "+1.5",
+					},
+				},
+			},
+		},
+	}
+
+	DrawDivisionStandings(canvas, division)
+
+	nameY := divisionStandingsTopPadding + divisionStandingsTitleH + divisionStandingsTitleGap
+	recordY := nameY + 10
+	gbY := nameY + 20
+	wildCardGBY := nameY + 30
+	palette := divisionStandingsColors()
+
+	recordMinX, _, found := findColorBoundsInRows(canvas, palette.record, recordY, recordY+fontH5x8-1)
+	if !found {
+		t.Fatalf("expected left-aligned record row to render at y=%d", recordY)
+	}
+	if recordMinX != divisionStandingsRecordX {
+		t.Fatalf("expected record row to start at x=%d, got %d", divisionStandingsRecordX, recordMinX)
+	}
+
+	if _, _, found := findColorBoundsInRows(canvas, palette.gamesBack, recordY, recordY+fontH5x8-1); found {
+		t.Fatalf("expected GB/WCGB text on their own rows, but found games-back pixels on record row y=%d", recordY)
+	}
+	gbMinX, gbMaxX, found := findColorBoundsInRows(canvas, palette.gamesBack, gbY, gbY+fontH5x8-1)
+	if !found {
+		t.Fatalf("expected GB row to render at y=%d", gbY)
+	}
+	if gbMinX != divisionStandingsRecordX {
+		t.Fatalf("expected GB row to start at x=%d, got %d", divisionStandingsRecordX, gbMinX)
+	}
+	if gbMaxX < divisionStandingsGBRightX-6 {
+		t.Fatalf("expected GB value to be right-aligned near x=%d, got max x %d", divisionStandingsGBRightX, gbMaxX)
+	}
+	wildCardGBMinX, wildCardGBMaxX, found := findColorBoundsInRows(canvas, palette.gamesBack, wildCardGBY, wildCardGBY+fontH5x8-1)
+	if !found {
+		t.Fatalf("expected WCGB row to render at y=%d", wildCardGBY)
+	}
+	if wildCardGBMinX != divisionStandingsRecordX {
+		t.Fatalf("expected WCGB row to start at x=%d, got %d", divisionStandingsRecordX, wildCardGBMinX)
+	}
+	if wildCardGBMaxX < divisionStandingsGBRightX-6 {
+		t.Fatalf("expected WCGB value to be right-aligned near x=%d, got max x %d", divisionStandingsGBRightX, wildCardGBMaxX)
 	}
 }
