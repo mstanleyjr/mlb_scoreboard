@@ -14,7 +14,7 @@ const (
 	divisionStandingsTitleH        = 8
 	divisionStandingsTitleGap      = 6
 	divisionStandingsTitleRuleGap  = 3
-	divisionStandingsRowBlockH     = 19
+	divisionStandingsRowBlockH     = 39
 	divisionStandingsRowGap        = 1
 	divisionStandingsRankX         = 1
 	divisionStandingsLineX         = 7
@@ -166,13 +166,16 @@ func DrawDivisionStandings(c PixelCanvas, division ScoreboardDivision) {
 		contentY += divisionStandingsTitleH + divisionStandingsTitleGap
 		for teamIndex, team := range section.Teams {
 			nameY := contentY
-			statsY := nameY + 10
+			recordY := nameY + 10
+			gbY := nameY + 20
+			wildCardGBY := nameY + 30
 			separatorY := nameY + divisionStandingsRowBlockH - 1
-			if nameY < height && statsY+fontH5x8 >= 0 {
+			if nameY < height && wildCardGBY+fontH5x8 >= 0 {
 				rank := trimToChars(fmt.Sprintf("%d", team.Rank), 2)
 				name := trimText5x8ToWidth(strings.ToUpper(chooseStringValue(team.ShortName, team.Name)), width-divisionStandingsTeamX-1)
 				record := trimToChars(fmt.Sprintf("%d-%d", team.Record.Wins, team.Record.Losses), 6)
 				gb := trimToChars(formatDivisionGamesBack(team.GamesBack), divisionStandingsMaxGBChars)
+				wildCardGB := trimToChars(formatDivisionGamesBack(team.WildCardGamesBack), divisionStandingsMaxGBChars)
 				teamColor := GetTeamColor(team.Name)
 				if divisionStandingsMonochrome {
 					teamColor = palette.team
@@ -180,14 +183,15 @@ func DrawDivisionStandings(c PixelCanvas, division ScoreboardDivision) {
 
 				DrawText5x8(c, divisionStandingsRankX, nameY, rank, palette.rank)
 				DrawText5x8(c, divisionStandingsTeamX, nameY, name, teamColor)
-				DrawText5x8(c, divisionStandingsRecordX, statsY, record, palette.record)
-				drawText5x8RightAligned(c, divisionStandingsGBRightX, statsY, gb, palette.gamesBack)
+				DrawText5x8(c, divisionStandingsRecordX, recordY, record, palette.record)
+				drawDivisionStandingsStatValueRow(c, gbY, "GB", gb, palette.gamesBack)
+				drawDivisionStandingsStatValueRow(c, wildCardGBY, "WCGB", wildCardGB, palette.gamesBack)
 
 				lineTop := nameY - divisionStandingsRowGap
 				if teamIndex == 0 {
 					lineTop = titleRuleY + 1
 				}
-				lineBottom := statsY + fontH5x8 - divisionStandingsLineGapBottom
+				lineBottom := wildCardGBY + fontH5x8 - divisionStandingsLineGapBottom
 				for y := lineTop; y <= lineBottom; y++ {
 					if y >= 0 && y < height {
 						c.Set(divisionStandingsLineX, y, palette.line)
@@ -217,8 +221,12 @@ func formatDivisionGamesBack(gamesBack string) string {
 	case "", "-", "0", "0.0":
 		return "-"
 	}
-	gb = strings.TrimSuffix(gb, ".0")
 	return gb
+}
+
+func drawDivisionStandingsStatValueRow(c PixelCanvas, y int, label, value string, col color.RGBA) {
+	DrawText5x8(c, divisionStandingsRecordX, y, label, col)
+	drawText5x8RightAligned(c, divisionStandingsGBRightX, y, value, col)
 }
 
 func divisionStandingsMaxScrollOffset(displayInfo ScoreboardDivision) int {
