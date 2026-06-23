@@ -611,12 +611,76 @@ func scorekeepingFieldingNotation(play *statsapi.BaseballPlayRestObject, prefix 
 			}
 		}
 	}
+	if seq := scorekeepingDescriptionFieldingSequence(play); len(seq) > len(best) {
+		best = seq
+	}
 
 	if len(best) == 0 {
 		return ""
 	}
 
 	return prefix + strings.Join(best, "-")
+}
+
+func scorekeepingDescriptionFieldingSequence(play *statsapi.BaseballPlayRestObject) []string {
+	if play == nil || play.Result == nil || play.Result.Description == nil {
+		return nil
+	}
+
+	description := strings.ToLower(strings.TrimSpace(*play.Result.Description))
+	if description == "" {
+		return nil
+	}
+	if sentence, _, found := strings.Cut(description, "."); found {
+		description = sentence
+	}
+
+	positionPhrases := []struct {
+		phrase string
+		code   string
+	}{
+		{phrase: "first baseman", code: "3"},
+		{phrase: "second baseman", code: "4"},
+		{phrase: "third baseman", code: "5"},
+		{phrase: "shortstop", code: "6"},
+		{phrase: "left fielder", code: "7"},
+		{phrase: "center fielder", code: "8"},
+		{phrase: "right fielder", code: "9"},
+		{phrase: "pitcher", code: "1"},
+		{phrase: "catcher", code: "2"},
+	}
+
+	sequence := make([]string, 0, 4)
+	searchFrom := 0
+	for searchFrom < len(description) {
+		nextIdx := -1
+		nextCode := ""
+		nextPhraseLen := 0
+		for _, position := range positionPhrases {
+			idx := strings.Index(description[searchFrom:], position.phrase)
+			if idx < 0 {
+				continue
+			}
+			absoluteIdx := searchFrom + idx
+			if nextIdx == -1 || absoluteIdx < nextIdx {
+				nextIdx = absoluteIdx
+				nextCode = position.code
+				nextPhraseLen = len(position.phrase)
+			}
+		}
+		if nextIdx == -1 {
+			break
+		}
+		if len(sequence) == 0 || sequence[len(sequence)-1] != nextCode {
+			sequence = append(sequence, nextCode)
+		}
+		searchFrom = nextIdx + nextPhraseLen
+	}
+
+	if len(sequence) == 0 {
+		return nil
+	}
+	return sequence
 }
 
 func scorekeepingAppendRBIs(notation string, rbi *int32) string {

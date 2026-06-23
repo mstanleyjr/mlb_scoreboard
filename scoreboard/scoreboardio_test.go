@@ -162,6 +162,25 @@ func TestScorekeepingLastPlayNotation(t *testing.T) {
 			want: "FO4-6",
 		},
 		{
+			name: "double play prefers full description chain when credits are short",
+			play: &statsapi.BaseballPlayRestObject{
+				Result: &statsapi.Result{
+					EventType:   ptr(string(statsapi.EventTypeGroundedIntoDoublePlay)),
+					Event:       ptr("Grounded Into Double Play"),
+					Description: ptr("Jacob Young grounds into a double play, third baseman Alec Bohm to second baseman Bryson Stott to first baseman Bryce Harper. Dylan Crews scores. Jorbit Vivas out at 2nd. Jacob Young out at 1st."),
+				},
+				Runners: &[]statsapi.RunnerMovement{
+					{
+						Credits: &[]statsapi.PlayCreditRestObject{
+							{Credit: ptr("f_assist"), Position: pos("5")},
+							{Credit: ptr("f_putout"), Position: pos("4")},
+						},
+					},
+				},
+			},
+			want: "GDP5-4-3",
+		},
+		{
 			name: "description fallback when no notation is recognized",
 			play: &statsapi.BaseballPlayRestObject{
 				Result: &statsapi.Result{
