@@ -418,6 +418,31 @@ func TestDrawLiveGameFrameLastPlayPanelLookingStrikeoutUsesBackwardK(t *testing.
 	}
 }
 
+func TestDrawLiveGameFrameLastPlayPanelCalledOutOnStrikesUsesBackwardK(t *testing.T) {
+	canvas := NewMockCanvas(64, 64)
+	game := ScoreboardLiveGame{
+		AwayTeam:         ScoreboardLiveGameTeam{Name: "Baltimore Orioles", ShortName: "BAL"},
+		HomeTeam:         ScoreboardLiveGameTeam{Name: "Washington Nationals", ShortName: "WSH"},
+		LastPlayNotation: "K",
+		LastPlay:         "Dylan Crews called out on strikes.",
+	}
+
+	DrawLiveGameFrame(canvas, ScoreboardLiveGameFrame{
+		Game:           game,
+		PanelIndex:     3,
+		NextPanelIndex: -1,
+	})
+
+	orange := color.RGBA{R: 255, G: 150, B: 50, A: 255}
+	black := color.RGBA{R: 0, G: 0, B: 0, A: 255}
+	if mockPixel(canvas, 29, 44) != black {
+		t.Fatalf("expected mirrored K to leave left row-1 pixel empty")
+	}
+	if mockPixel(canvas, 32, 44) != orange || mockPixel(canvas, 33, 44) != orange {
+		t.Fatalf("expected mirrored K row to render on the right-shifted columns")
+	}
+}
+
 func TestDrawLiveGameFrameLastPlayPanelSwingingStrikeoutKeepsNormalK(t *testing.T) {
 	canvas := NewMockCanvas(64, 64)
 	game := ScoreboardLiveGame{

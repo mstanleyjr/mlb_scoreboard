@@ -1249,8 +1249,14 @@ func rawLastPlayDisplayNotation(game ScoreboardLiveGame) string {
 }
 
 func isLookingStrikeoutNotation(notation, lastPlay string) bool {
-	return strings.EqualFold(strings.TrimSpace(notation), "K") &&
-		strings.Contains(strings.ToLower(lastPlay), "looking")
+	if !strings.EqualFold(strings.TrimSpace(notation), "K") {
+		return false
+	}
+
+	lastPlay = strings.ToLower(lastPlay)
+	return strings.Contains(lastPlay, "looking") ||
+		strings.Contains(lastPlay, "called out on strikes") ||
+		strings.Contains(lastPlay, "called strike three")
 }
 
 func drawMirroredK5x8CenteredAtOffset(c PixelCanvas, xOffset, y int, col color.RGBA) {
