@@ -154,7 +154,7 @@ func StartScoreboard(ctx context.Context, wg *sync.WaitGroup, controller *Displa
 		} else if activeGame != nil {
 			fmt.Println("Active game found! Displaying live game data for game ID: ", *activeGame)
 			ActiveGameDisplay(ctx, *activeGame, scoreboardInfo, mlbClient, controller)
-		} else if len(activeBigGames) > 1 {
+		} else if len(activeBigGames) > 0 {
             LiveLookInDisplay(ctx, scoreboardInfo, mlbClient, controller)
 		} else {
 			pages[pageIndex](scoreboardInfo)

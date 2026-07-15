@@ -284,9 +284,8 @@ func FindAllActiveBigGameIds(info ScoreboardInformation) []int32 {
     for _, date := range *info.TodaySchedule.Dates {
         for _, game := range *date.Games {
             if *game.Status.AbstractGameCode == "L" && *game.GameType != "" {
-                foundGameType := getGameTypeFromLookup(*game.GameType)
                 for _, bigGameType := range bigGameTypes {
-                    if bigGameType == foundGameType {
+                    if bigGameType == *game.GameType {
                         activeBigGameIds = append(activeBigGameIds, *game.GamePk)
                     }
                 }
@@ -769,9 +768,13 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 	}
 
 	var inning, outs, balls, strikes, lastPlayRBIs int
-	var halfInning, venue, lastPlay, lastPlayNotation string
+	var halfInning, venue, lastPlay, lastPlayNotation, gameType string
 	var currentPitcherId, currentBatterId int32
 	var bases ScoreboardLiveGameBases
+
+	if game.GameData != nil && game.GameData.Game != nil && game.GameData.Game.Type != nil {
+		gameType = *game.GameData.Game.Type
+	}
 
 	if game.LiveData.Linescore != nil {
 
@@ -861,6 +864,7 @@ func getLiveGameInfo(game statsapi.BaseballGameRestObject) (ScoreboardLiveGame, 
 		CurrentPitcherId: currentPitcherId,
 		CurrentBatterId:  currentBatterId,
 		Venue:            venue,
+		GameType:         gameType,
 		LastPlayNotation: lastPlayNotation,
 		LastPlay:         lastPlay,
 		LastPlayRBIs:     lastPlayRBIs,
