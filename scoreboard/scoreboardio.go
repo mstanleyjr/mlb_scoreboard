@@ -283,11 +283,11 @@ func FindAllActiveBigGameIds(info ScoreboardInformation) []int32 {
 
     for _, date := range *info.TodaySchedule.Dates {
         for _, game := range *date.Games {
-            if *game.Status.AbstractGameCode == "L" && *game.GameType != nil {
-                foundGameType = getGameTypeFromLookup(*game.GameType)
+            if *game.Status.AbstractGameCode == "L" && *game.GameType != "" {
+                foundGameType := getGameTypeFromLookup(*game.GameType)
                 for _, bigGameType := range bigGameTypes {
                     if bigGameType == foundGameType {
-                        activeBigGameIds = append(activeBigGameIds, *.game.GamePk)
+                        activeBigGameIds = append(activeBigGameIds, *game.GamePk)
                     }
                 }
             }
