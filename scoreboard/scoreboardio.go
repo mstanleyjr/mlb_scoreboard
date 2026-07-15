@@ -273,6 +273,31 @@ func FindAllActiveGameIds(info ScoreboardInformation) []int32 {
 	return activeGameIds
 }
 
+func FindAllActiveBigGameIds(info ScoreboardInformation) []int32 {
+    activeBigGameIds := make([]int32, 0)
+    if info.TodaySchedule == nil || len(*info.TodaySchedule.Dates) == 0 {
+        return activeBigGameIds
+    }
+
+    bigGameTypes := getBigGameTypes()
+
+    for _, date := range *info.TodaySchedule.Dates {
+        for _, game := range *date.Games {
+            if *game.Status.AbstractGameCode == "L" && *game.GameType != nil {
+                foundGameType = getGameTypeFromLookup(*game.GameType)
+                for _, bigGameType := range bigGameTypes {
+                    if bigGameType == foundGameType {
+                        activeBigGameIds = append(activeBigGameIds, *.game.GamePk)
+                    }
+                }
+            }
+        }
+    }
+
+    return activeBigGameIds
+
+}
+
 func FindNextScheduledGame(info ScoreboardInformation) (*statsapi.BaseballScheduleItemRestObject, error) {
 	if info.TeamSchedule == nil || len(*info.TeamSchedule.Dates) == 0 {
 		return nil, nil
@@ -1126,4 +1151,8 @@ func GetScoreboardPitcherStats(pitcherStats statsapi.PlayerStatsResponse) (era s
 	}
 
 	return era, wins, losses, saves
+}
+
+func getBigGameTypes() []string {
+    return []string{"F", "D", "L", "W", "C", "P", "A"}
 }
